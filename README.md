@@ -363,7 +363,6 @@ MiniDB/
 ├── config.py              # Configuration management
 ├── utils.py               # Helper functions
 ├── visualizer.py          # Educational mode visualizations
-├── index_manager.py       # Indexing system
 │
 ├── parser/                # Modular parser (11 command parsers)
 │   ├── __init__.py        # Main parse_query() with visualization
@@ -373,12 +372,12 @@ MiniDB/
 │   ├── update_parser.py   # UPDATE parser
 │   ├── delete_parser.py   # DELETE parser
 │   ├── drop_parser.py     # DROP TABLE parser
-│   ├── alter_parser.py    # ALTER TABLE parser (8 operations)
+│   ├── alter_parser.py    # ALTER TABLE parser 
 │   ├── show_parser.py     # SHOW TABLES parser
 │   ├── describe_parser.py # DESCRIBE TABLE parser
 │   └── truncate_parser.py # TRUNCATE TABLE parser
 │
-├── storage/               # Modular storage engine (11 handlers)
+├── storage/               # Modular storage engine 
 │   ├── __init__.py        # Main execute_command() router
 │   ├── create_storage.py  # CREATE TABLE storage handler
 │   ├── insert_storage.py  # INSERT INTO storage handler
@@ -391,15 +390,8 @@ MiniDB/
 │   ├── describe_storage.py# DESCRIBE TABLE storage handler
 │   └── truncate_storage.py# TRUNCATE TABLE storage handler
 │
-├── normalization/         # Database normalization tools
-│   ├── __init__.py
-│   ├── schema_analyzer.py # Schema analysis
-│   ├── fd_handler.py      # Functional dependency handler
-│   └── anomaly_detector.py# Anomaly detection
-│
 ├── data/                  # Table data files (.tbl)
 ├── metadata/              # Table metadata files (.meta)
-├── index/                 # Index files
 │
 └── README.md              # This file
 ```
@@ -460,55 +452,6 @@ MiniDB/
   "primary_key": ["id"]
 }
 ```
-
-## 🚀 Future Enhancements
-
-- [ ] Foreign key constraints
-- [ ] JOIN operations (INNER, LEFT, RIGHT, FULL)
-- [ ] Subqueries support
-- [ ] Transactions (BEGIN, COMMIT, ROLLBACK)
-- [ ] User authentication and permissions
-- [ ] UNIQUE constraint
-- [ ] CHECK constraint
-- [ ] Views (CREATE VIEW, DROP VIEW)
-- [ ] Stored procedures
-- [ ] Triggers
-- [ ] Full-text search
-- [ ] Connection pooling
-- [ ] Query caching
-- [ ] SQL injection prevention
-- [ ] Backup and restore functionality
-- [ ] Multi-threading support
-- [ ] Network protocol (client-server architecture)
-
-## 📁 Modular Architecture
-
-MiniDB follows a clean, modular architecture for easy maintenance and debugging. See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for detailed documentation.
-
-### Key Benefits
-
-✅ **Single Responsibility**: Each file handles ONE command type  
-✅ **Easy Debugging**: Find bugs in 50-line files instead of 900-line monoliths  
-✅ **Quick Navigation**: Jump to specific command implementation instantly  
-✅ **Extensible**: Add new commands in 5 simple steps  
-
-### Structure Overview
-
-```
-parser/         # 11 files - One parser per command type
-storage/        # 11 files - One storage handler per command type
-```
-
-**Before Refactoring**:
-- `parser.py`: 740 lines (all commands mixed)
-- `storage.py`: 900+ lines (all operations mixed)
-
-**After Refactoring**:
-- Average file: 60-80 lines
-- Largest file: 350 lines (ALTER with 8 operations)
-- **Result**: 10x easier to debug and maintain!
-
-For complete details on the modular architecture, see **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)**.
 
 ## 🤝 Contributing
 
