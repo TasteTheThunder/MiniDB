@@ -6,25 +6,10 @@ A lightweight, educational SQL database management system built entirely in Pyth
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Status](https://img.shields.io/badge/Status-Active-success.svg)
 
-## 📋 Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Architecture](#architecture)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Supported SQL Commands](#supported-sql-commands)
-- [Educational Mode](#educational-mode)
-- [Project Structure](#project-structure)
-- [Technical Implementation](#technical-implementation)
-- [Examples](#examples)
-- [Future Enhancements](#future-enhancements)
-- [Contributing](#contributing)
-- [License](#license)
 
 ## 🎯 Overview
 
-MiniDB is a fully functional relational database management system designed for educational purposes. It implements fundamental database concepts from the ground up, providing insights into how production databases work internally.
+MiniDB is a fully functional file based relational database management system designed for educational purposes. It implements fundamental database concepts from the ground up, providing insights into how production databases work internally.
 
 ### Why MiniDB?
 
@@ -307,38 +292,12 @@ List all tables in the database.
 SHOW TABLES;
 ```
 
-**Output:**
-```
-Tables in database:
-────────────────────────────────────────
-1. courses
-2. enrollments
-3. students
-────────────────────────────────────────
-✅ 3 table(s) found
-```
-
 ### 9. DESCRIBE
 
 Show table structure and schema.
 
 ```sql
 DESCRIBE students;
-```
-
-**Output:**
-```
-Table: students
-============================================================
-Column Name          Data Type       Key
-------------------------------------------------------------
-id                   INT             PRIMARY KEY
-name                 VARCHAR         
-age                  INT             
-gpa                  DOUBLE          
-============================================================
-Primary Key: id
-✅ DESCRIBE Completed
 ```
 
 ### 10. TRUNCATE
@@ -399,16 +358,41 @@ Created Metadata : metadata/students.meta
 MiniDB/
 │
 ├── minidb.py              # Main entry point and REPL
-├── parser.py              # SQL query parser
 ├── tokenizer.py           # Lexical analyzer
 ├── executor.py            # Query execution coordinator
-├── storage.py             # Storage engine and file I/O
 ├── config.py              # Configuration management
 ├── utils.py               # Helper functions
 ├── visualizer.py          # Educational mode visualizations
 ├── index_manager.py       # Indexing system
 │
+├── parser/                # Modular parser (11 command parsers)
+│   ├── __init__.py        # Main parse_query() with visualization
+│   ├── create_parser.py   # CREATE TABLE parser
+│   ├── insert_parser.py   # INSERT INTO parser
+│   ├── select_parser.py   # SELECT query parser
+│   ├── update_parser.py   # UPDATE parser
+│   ├── delete_parser.py   # DELETE parser
+│   ├── drop_parser.py     # DROP TABLE parser
+│   ├── alter_parser.py    # ALTER TABLE parser (8 operations)
+│   ├── show_parser.py     # SHOW TABLES parser
+│   ├── describe_parser.py # DESCRIBE TABLE parser
+│   └── truncate_parser.py # TRUNCATE TABLE parser
+│
+├── storage/               # Modular storage engine (11 handlers)
+│   ├── __init__.py        # Main execute_command() router
+│   ├── create_storage.py  # CREATE TABLE storage handler
+│   ├── insert_storage.py  # INSERT INTO storage handler
+│   ├── select_storage.py  # SELECT query executor
+│   ├── update_storage.py  # UPDATE storage handler
+│   ├── delete_storage.py  # DELETE storage handler
+│   ├── drop_storage.py    # DROP TABLE storage handler
+│   ├── alter_storage.py   # ALTER TABLE storage handler
+│   ├── show_storage.py    # SHOW TABLES storage handler
+│   ├── describe_storage.py# DESCRIBE TABLE storage handler
+│   └── truncate_storage.py# TRUNCATE TABLE storage handler
+│
 ├── normalization/         # Database normalization tools
+│   ├── __init__.py
 │   ├── schema_analyzer.py # Schema analysis
 │   ├── fd_handler.py      # Functional dependency handler
 │   └── anomaly_detector.py# Anomaly detection
@@ -430,23 +414,25 @@ MiniDB/
    - String literal handling
    - Symbol parsing
 
-2. **Parser** (`parser.py`)
-   - Syntax validation
-   - AST (Abstract Syntax Tree) generation
+2. **Parser Module** (`parser/`)
+   - 11 specialized parsers (one per command type)
+   - Syntax validation and AST generation
    - Command structure creation
-   - Educational trace generation
+   - Educational trace generation via `_display_parsed_command()`
+   - Average 60-80 lines per parser file
 
 3. **Executor** (`executor.py`)
-   - Command routing
+   - Command routing to storage handlers
    - Operation orchestration
    - Error handling
 
-4. **Storage Engine** (`storage.py`)
+4. **Storage Engine Module** (`storage/`)
+   - 11 specialized storage handlers (one per command type)
    - File-based persistence
    - Metadata management (JSON)
-   - CRUD operations
-   - Constraint enforcement
+   - CRUD operations with constraint enforcement
    - Indexing integration
+   - Average 78 lines per storage file
 
 5. **Index Manager** (`index_manager.py`)
    - B-tree like indexing
@@ -475,59 +461,6 @@ MiniDB/
 }
 ```
 
-## 📖 Examples
-
-### Example 1: Student Management System
-
-```sql
--- Create tables
-CREATE TABLE students (id INT, name VARCHAR, major VARCHAR) PRIMARY KEY (id);
-CREATE TABLE courses (id INT, name VARCHAR, credits INT) PRIMARY KEY (id);
-CREATE TABLE enrollments (student_id INT, course_id INT, grade DOUBLE) 
-    PRIMARY KEY (student_id, course_id);
-
--- Insert data
-INSERT INTO students VALUES 
-    (1, 'Alice', 'CS'),
-    (2, 'Bob', 'Math'),
-    (3, 'Charlie', 'CS');
-
-INSERT INTO courses VALUES 
-    (101, 'Database Systems', 4),
-    (102, 'Algorithms', 3),
-    (103, 'Calculus', 4);
-
-INSERT INTO enrollments VALUES 
-    (1, 101, 3.8),
-    (1, 102, 3.9),
-    (2, 103, 3.7),
-    (3, 101, 4.0);
-
--- Query data
-SELECT * FROM students WHERE major = 'CS';
-
-SELECT course_id, AVG(grade) FROM enrollments GROUP BY course_id;
-
-SELECT * FROM enrollments WHERE grade > 3.5 ORDER BY grade DESC;
-```
-
-### Example 2: Dynamic Schema Modification
-
-```sql
--- Create initial table
-CREATE TABLE products (id INT, name VARCHAR) PRIMARY KEY (id);
-
--- Add new columns
-ALTER TABLE products ADD COLUMN price DOUBLE, stock INT, category VARCHAR;
-
--- Modify structure
-ALTER TABLE products MODIFY COLUMN price INT;
-ALTER TABLE products RENAME COLUMN stock TO quantity;
-
--- View structure
-DESCRIBE products;
-```
-
 ## 🚀 Future Enhancements
 
 - [ ] Foreign key constraints
@@ -547,6 +480,35 @@ DESCRIBE products;
 - [ ] Backup and restore functionality
 - [ ] Multi-threading support
 - [ ] Network protocol (client-server architecture)
+
+## 📁 Modular Architecture
+
+MiniDB follows a clean, modular architecture for easy maintenance and debugging. See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for detailed documentation.
+
+### Key Benefits
+
+✅ **Single Responsibility**: Each file handles ONE command type  
+✅ **Easy Debugging**: Find bugs in 50-line files instead of 900-line monoliths  
+✅ **Quick Navigation**: Jump to specific command implementation instantly  
+✅ **Extensible**: Add new commands in 5 simple steps  
+
+### Structure Overview
+
+```
+parser/         # 11 files - One parser per command type
+storage/        # 11 files - One storage handler per command type
+```
+
+**Before Refactoring**:
+- `parser.py`: 740 lines (all commands mixed)
+- `storage.py`: 900+ lines (all operations mixed)
+
+**After Refactoring**:
+- Average file: 60-80 lines
+- Largest file: 350 lines (ALTER with 8 operations)
+- **Result**: 10x easier to debug and maintain!
+
+For complete details on the modular architecture, see **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)**.
 
 ## 🤝 Contributing
 
@@ -577,18 +539,23 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📊 Statistics
 
-- **Lines of Code**: ~2500+
-- **Supported SQL Commands**: 10+
-- **Data Types**: 4
+- **Lines of Code**: ~3000+ (well-organized across 30+ files)
+- **Supported SQL Commands**: 10+ (CREATE, INSERT, SELECT, UPDATE, DELETE, DROP, ALTER, SHOW, DESCRIBE, TRUNCATE)
+- **ALTER Operations**: 8 (ADD/DROP/MODIFY COLUMN, RENAME COLUMN/TABLE, ADD/DROP PRIMARY KEY)
+- **Data Types**: 4 (INT, DOUBLE, CHAR, VARCHAR)
 - **File Format**: CSV-like with JSON metadata
 - **Language**: Pure Python 3.8+
 - **Dependencies**: None (standard library only)
+- **Architecture**: Modular (11 parser files + 11 storage files)
+- **Test Coverage**: 14 comprehensive test cases
 
 ---
 
 <div align="center">
 
 **⭐ Star this repository if you find it helpful!**
+
+**📚 Perfect for placement preparation and portfolio showcasing!**
 
 Made with ❤️ for learning and education
 

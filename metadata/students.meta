@@ -1,1 +1,1 @@
-{"columns": [["id", "INT"], ["name", "VARCHAR"], ["branch", "CHAR"], ["cgpa", "DOUBLE"], ["age", "INT"], ["grade", "DOUBLE"], ["city", "VARCHAR"]], "primary_key": ["id", "name"]}
+{"columns": [["id", "INT"], ["name", "VARCHAR"], ["branch", "CHAR"], ["cgpa", "DOUBLE"]], "primary_key": ["id"]}

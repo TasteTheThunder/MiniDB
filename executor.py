@@ -2,20 +2,14 @@ from storage import (
     create_table,
     insert_row,
     select_rows,
-    drop_table,
     update_row,
+    delete_row,
+    drop_table,
     alter_table,
     show_tables,
     describe_table,
     truncate_table
 )
-
-# delete_row optional import
-try:
-    from storage import delete_row
-except ImportError:
-    delete_row = None
-
 
 from visualizer import print_pipeline, print_trace
 import config
@@ -120,12 +114,6 @@ def execute_query(command):
 
     elif cmd_type == "DELETE":
 
-        if delete_row is None:
-
-            raise Exception(
-                "DELETE not supported (delete_row missing)"
-            )
-
         print_trace(
             "EXECUTOR",
             ["Operation Identified: DELETE"]
@@ -213,7 +201,7 @@ def execute_query(command):
             ["Operation Identified: DESCRIBE"]
         )
 
-        describe_table(command["table"])
+        describe_table(command)
 
     # =========================
     # TRUNCATE
@@ -226,7 +214,7 @@ def execute_query(command):
             ["Operation Identified: TRUNCATE"]
         )
 
-        truncate_table(command["table"])
+        truncate_table(command)
 
     else:
 
