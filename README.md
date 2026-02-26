@@ -470,27 +470,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 👨‍💻 Author
 
 **Your Name**
-- GitHub: [@yourusername](https://github.com/yourusername)
-- LinkedIn: [Your LinkedIn](https://linkedin.com/in/yourprofile)
-- Email: your.email@example.com
+- GitHub: [Aditya Raj](https://github.com/TasteTheThunder)
+- LinkedIn: [Aditya Raj](https://www.linkedin.com/in/aditya-raj3112/)
+- Email: raj285003@gmail.com
 
 ## 🙏 Acknowledgments
 
 - Inspired by PostgreSQL and SQLite architectures
 - Built as a learning project to understand database internals
 - Special thanks to the open-source community
-
-## 📊 Statistics
-
-- **Lines of Code**: ~3000+ (well-organized across 30+ files)
-- **Supported SQL Commands**: 10+ (CREATE, INSERT, SELECT, UPDATE, DELETE, DROP, ALTER, SHOW, DESCRIBE, TRUNCATE)
-- **ALTER Operations**: 8 (ADD/DROP/MODIFY COLUMN, RENAME COLUMN/TABLE, ADD/DROP PRIMARY KEY)
-- **Data Types**: 4 (INT, DOUBLE, CHAR, VARCHAR)
-- **File Format**: CSV-like with JSON metadata
-- **Language**: Pure Python 3.8+
-- **Dependencies**: None (standard library only)
-- **Architecture**: Modular (11 parser files + 11 storage files)
-- **Test Coverage**: 14 comprehensive test cases
 
 ---
 
