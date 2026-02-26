@@ -1,0 +1,1 @@
+{"columns": [["student_id", "INT"], ["course_id", "INT"], ["grade", "DOUBLE"]], "primary_key": ["student_id", "course_id"]}
