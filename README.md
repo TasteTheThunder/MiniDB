@@ -306,7 +306,7 @@ Remove all data from a table while preserving structure.
 
 ```sql
 TRUNCATE TABLE students;
--- or
+-- OR
 TRUNCATE students;
 ```
 
@@ -471,7 +471,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- Inspired by PostgreSQL and SQLite architectures
+- Inspired by PostgreSQL and MySQL architectures
 - Built as a learning project to understand database internals
 - Special thanks to the open-source community
 
