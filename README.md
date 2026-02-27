@@ -289,6 +289,7 @@ ALTER TABLE students DROP PRIMARY KEY;
 List all tables in the database.
 
 ```sql
+-- List all tables in the database
 SHOW TABLES;
 ```
 
@@ -297,7 +298,11 @@ SHOW TABLES;
 Show table structure and schema.
 
 ```sql
+-- Show table structure
 DESCRIBE students;
+
+-- View column details and constraints
+DESCRIBE enrollments;
 ```
 
 ### 10. TRUNCATE
@@ -305,9 +310,14 @@ DESCRIBE students;
 Remove all data from a table while preserving structure.
 
 ```sql
+-- Truncate with TABLE keyword
 TRUNCATE TABLE students;
--- OR
+
+-- Truncate without TABLE keyword
 TRUNCATE students;
+
+-- Clear all enrollment data
+TRUNCATE TABLE enrollments;
 ```
 
 ## 🎓 Educational Mode
