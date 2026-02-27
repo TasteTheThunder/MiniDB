@@ -364,7 +364,7 @@ MiniDB/
 ├── utils.py               # Helper functions
 ├── visualizer.py          # Educational mode visualizations
 │
-├── parser/                # Modular parser (11 command parsers)
+├── parser/                # Modular parser
 │   ├── __init__.py        # Main parse_query() with visualization
 │   ├── create_parser.py   # CREATE TABLE parser
 │   ├── insert_parser.py   # INSERT INTO parser
@@ -425,11 +425,6 @@ MiniDB/
    - CRUD operations with constraint enforcement
    - Indexing integration
    - Average 78 lines per storage file
-
-5. **Index Manager** (`index_manager.py`)
-   - B-tree like indexing
-   - Query optimization
-   - Fast lookups
 
 ### Data Storage Format
 
