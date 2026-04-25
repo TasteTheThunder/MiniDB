@@ -11,7 +11,7 @@ The system automatically creates and maintains indices based on query patterns, 
 ## Key Features
 
 🚀 **Automatic Index Creation**  
-> Indices are created automatically after detecting usage patterns (5+ queries on same column)
+> Indices are created automatically after detecting usage patterns (3+ queries on same column)
 
 ⚡ **Hybrid Approach**  
 > Uses HASH indices for equality queries (O(1)) and SORTED indices for range queries (O(log n))
@@ -69,7 +69,7 @@ MiniDB Query Flow with Indexing
 │      Record Stats                   │
 │             ▼                        │
 │      Check Threshold                │
-│      (5 queries?)                   │
+│      (3 queries?)                   │
 │             ▼                        │
 │      Create Index if Needed         │
 └─────────────────────────────────────┘
@@ -153,10 +153,10 @@ print(stats.get_all_stats())
 - Queries use full table scan
 - System tracks query patterns
 
-### Phase 2: Threshold Detection (Query 5)
+### Phase 2: Threshold Detection (Query 3)
 ```
-Equality queries >= 5?  → Create HASH index
-Range queries >= 5?     → Create SORTED index
+Equality queries >= 3?  → Create HASH index
+Range queries >= 3?     → Create SORTED index
 ```
 
 ### Phase 3: Optimized Queries (6+)
@@ -170,13 +170,11 @@ Range queries >= 5?     → Create SORTED index
 Query 1: WHERE id = 1       → Full scan, record stat
 Query 2: WHERE id = 2       → Full scan, record stat
 Query 3: WHERE id = 3       → Full scan, record stat
-Query 4: WHERE id = 4       → Full scan, record stat
-Query 5: WHERE id = 5       → Full scan, record stat
                             ⬇
                      THRESHOLD REACHED!
                      Create Hash Index
-Query 6: WHERE id = 1       → Index lookup! O(1)
-Query 7: WHERE id = 2       → Index lookup! O(1)
+Query 4: WHERE id = 1       → Index lookup! O(1)
+Query 5: WHERE id = 2       → Index lookup! O(1)
 ...                         → 100,000x+ faster!
 ```
 
@@ -186,7 +184,7 @@ Query 7: WHERE id = 2       → Index lookup! O(1)
 
 ### HASH Index
 
-**When Created:** After 5+ equality queries on same column
+**When Created:** After 3+ equality queries on same column
 
 **Use Case:**
 ```sql
@@ -208,7 +206,7 @@ SELECT * FROM students WHERE id = 5
 
 ### SORTED Index
 
-**When Created:** After 5+ range queries on same column
+**When Created:** After 3+ range queries on same column
 
 **Use Cases:**
 ```sql
@@ -478,7 +476,7 @@ python test_indexing_system.py
 ## Troubleshooting
 
 ### Q: Index not created yet
-**A:** Need to run 5+ queries on the column first
+**A:** Need to run 3+ queries on the column first
 ```python
 stats = get_query_stats()
 print(stats.get_stats('table', 'column'))
