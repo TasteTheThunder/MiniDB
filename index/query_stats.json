@@ -1,0 +1,20 @@
+{
+  "test_table": {
+    "test_column": {
+      "equality_count": 0,
+      "range_count": 5
+    }
+  },
+  "test": {
+    "id": {
+      "equality_count": 5,
+      "range_count": 0
+    }
+  },
+  "students": {
+    "id": {
+      "equality_count": 6,
+      "range_count": 0
+    }
+  }
+}

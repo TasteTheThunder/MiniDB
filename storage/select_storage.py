@@ -8,6 +8,133 @@ from utils import (
     check_table_exists,
     compare
 )
+from index.index_manager import get_index_manager
+
+
+def _determine_operator_type(op):
+    """
+    Determine if operator is equality or range query.
+    
+    Args:
+        op: Operator string ('=', '<', '>', '<=', '>=')
+    
+    Returns:
+        'equality' or 'range'
+    """
+    return 'equality' if op == '=' else 'range'
+
+
+def _get_filtered_rows_with_index(table, tbl, condition, columns, metadata):
+    """
+    Attempt to use index for filtering, fallback to full scan.
+    
+    Args:
+        table: Table name
+        tbl: Path to table file
+        condition: Tuple (column, operator, value) or None
+        columns: List of column names
+        metadata: Table metadata dict
+    
+    Returns:
+        Tuple (filtered_rows, rows_scanned, used_index)
+            - filtered_rows: list of row values [val1, val2, ...]
+            - rows_scanned: number of rows examined
+            - used_index: bool indicating if index was used
+    """
+    manager = get_index_manager()
+    
+    if not condition:
+        # No condition, must do full table scan
+        rows = open(tbl).readlines()
+        filtered = [row.strip().split(",") for row in rows]
+        return (filtered, len(rows), False)
+    
+    col, op, val = condition
+    
+    if col not in columns:
+        # Column doesn't exist, full scan needed
+        rows = open(tbl).readlines()
+        filtered = [row.strip().split(",") for row in rows]
+        return (filtered, len(rows), False)
+    
+    col_idx = columns.index(col)
+    
+    # Determine operator type and record query
+    op_type = _determine_operator_type(op)
+    should_create_hash, should_create_sorted = manager.record_query(table, col, op)
+    
+    # Try to use existing index
+    row_numbers = manager.search_with_index(table, col, op, val)
+    
+    if row_numbers is not None:
+        # Index was found and used
+        filtered = []
+        all_rows = open(tbl).readlines()
+        
+        for row_num in sorted(row_numbers):
+            if row_num < len(all_rows):
+                filtered.append(all_rows[row_num].strip().split(","))
+        
+        print_trace("INDEX", [
+            f"Index used for column '{col}'",
+            f"Row numbers retrieved: {len(row_numbers)}"
+        ])
+        
+        return (filtered, len(all_rows), True)
+    
+    # No index available, do full table scan
+    rows = open(tbl).readlines()
+    filtered = []
+    
+    for row in rows:
+        vals = row.strip().split(",")
+        
+        if not compare(vals[col_idx], op, val):
+            continue
+        
+        filtered.append(vals)
+    
+    # Check if we should create index after threshold reached
+    if should_create_hash or should_create_sorted:
+        try:
+            # Load full table data for index creation
+            all_rows = open(tbl).readlines()
+            table_data = [row.strip().split(",") for row in all_rows]
+            
+            print_trace("INDEX CREATION", [
+                f"Building index for {table}.{col}",
+                f"{'HASH' if should_create_hash else 'SORTED'} index"
+            ])
+            
+            if should_create_hash:
+                manager.create_hash_index(table, col, table_data, col_idx)
+            else:
+                manager.create_sorted_index(table, col, table_data, col_idx)
+        except Exception as e:
+            print(f"Warning: Could not create index: {e}")
+    
+    return (filtered, len(rows), False)
+
+
+def _read_rows_by_numbers(tbl, row_numbers):
+    """
+    Efficiently read specific rows from a file.
+    
+    Args:
+        tbl: Path to table file
+        row_numbers: List of row numbers to read (0-indexed)
+    
+    Returns:
+        List of rows as list of values
+    """
+    rows = []
+    all_lines = open(tbl).readlines()
+    
+    for row_num in row_numbers:
+        if row_num < len(all_lines):
+            rows.append(all_lines[row_num].strip().split(","))
+    
+    return rows
 
 
 def select_rows(
@@ -21,7 +148,8 @@ def select_rows(
         limit=None
 ):
     """
-    Query data from a table with various filtering and aggregation options
+    Query data from a table with various filtering and aggregation options.
+    Uses adaptive indexing when available.
     """
     tbl, meta = table_paths(table)
     check_table_exists(tbl, meta)
@@ -29,26 +157,16 @@ def select_rows(
     metadata = json.load(open(meta))
     columns = [c[0] for c in metadata["columns"]]
 
-    rows = open(tbl).readlines()
+    # Use index-aware filtering
+    filtered, rows_scanned, used_index = _get_filtered_rows_with_index(
+        table, tbl, condition, columns, metadata
+    )
 
     print_trace("STORAGE ENGINE", [
         f"Open File : {tbl}",
-        f"Rows Scanned : {len(rows)}"
+        f"Rows Scanned : {rows_scanned}",
+        f"Index Used : {'Yes' if used_index else 'No'}"
     ])
-
-    filtered = []
-
-    for row in rows:
-        vals = row.strip().split(",")
-
-        if condition:
-            col, op, val = condition
-            idx = columns.index(col)
-
-            if not compare(vals[idx], op, val):
-                continue
-
-        filtered.append(vals)
 
     # ===========================
     # ORDER BY (for non-aggregated queries)
