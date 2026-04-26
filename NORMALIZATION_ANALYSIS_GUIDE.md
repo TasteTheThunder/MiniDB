@@ -46,7 +46,7 @@ Rules:
 
 ## 4. Step-by-Step Analysis Pipeline
 
-MiniDB visualizes analysis in educational steps:
+MiniDB follows this analysis pipeline internally and presents a compact educational dashboard report:
 
 1. Load Schema
 2. Load / Request Functional Dependencies
@@ -58,6 +58,10 @@ MiniDB visualizes analysis in educational steps:
 8. Check 3NF
 9. Detect Anomalies
 10. Suggest Decomposition
+
+Note:
+- `ANALYZE SCHEMA` intentionally uses its own dedicated dashboard output.
+- Generic tokenizer/parser/executor trace blocks are skipped for this command for readability.
 
 ## 5. Attribute Closure
 

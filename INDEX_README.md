@@ -101,9 +101,9 @@ MiniDB Query Flow with Indexing
 
 | File | Lines | Content |
 |------|-------|---------|
-| `INDEX_DOCUMENTATION.md` | 600+ | Complete system documentation |
 | `README.md` | main | Project-level usage and command reference |
 | `NORMALIZATION_ANALYSIS_GUIDE.md` | main | Schema analysis and anomaly guide |
+| `INDEX_README.md` | main | Complete indexing architecture and usage guide |
 
 ---
 
@@ -514,17 +514,14 @@ if os.path.exists('index'):
 
 For more information, see:
 
-1. **[INDEX_DOCUMENTATION.md](INDEX_DOCUMENTATION.md)**
-   - Comprehensive system documentation
-   - Algorithm explanations in detail
-   - File format specifications
-   - Performance analysis
-
-2. **[README.md](README.md)**
+1. **[README.md](README.md)**
   - Command reference and project overview
 
-3. **[NORMALIZATION_ANALYSIS_GUIDE.md](NORMALIZATION_ANALYSIS_GUIDE.md)**
+2. **[NORMALIZATION_ANALYSIS_GUIDE.md](NORMALIZATION_ANALYSIS_GUIDE.md)**
   - Schema analysis and anomaly explanations
+
+3. **[INDEX_README.md](INDEX_README.md)**
+  - End-to-end indexing implementation and examples
 
 ---
 
@@ -567,8 +564,12 @@ For more information, see:
 For questions about the implementation, refer to:
 - Code comments in the index modules
 - Docstrings in Python files
-- Query stats in `index/query_stats.json`
-- Current index files in `index/*.hash` and `index/*.sorted`
+- Generated query stats in `index/query_stats.json`
+- Generated index files in `index/*.hash` and `index/*.sorted`
+
+Note:
+- `query_stats.json`, `.hash`, and `.sorted` files are runtime-generated artifacts.
+- These files are expected to be created locally as queries run and are typically git-ignored.
 
 ---
 

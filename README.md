@@ -121,6 +121,13 @@ cd minidb
 python minidb.py
 ```
 
+MiniDB creates `data/` and `metadata/` automatically on startup.
+If you run internal modules directly (without `minidb.py`), create them manually:
+
+```bash
+mkdir data metadata
+```
+
 ## 💻 Usage
 
 ### Starting MiniDB
@@ -411,6 +418,10 @@ Created Metadata : metadata/students.meta
 
 ✅ Table Created Successfully
 ```
+
+Note for schema analysis:
+- `ANALYZE SCHEMA` uses a dedicated normalization dashboard output.
+- It intentionally skips tokenizer/parser/executor trace blocks for cleaner educational reading.
 
 ## 📁 Project Structure
 
