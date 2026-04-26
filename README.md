@@ -53,6 +53,7 @@ MiniDB is a fully functional file based relational database management system de
   - Rename columns and tables
   - SHOW TABLES
   - DESCRIBE table structure
+  - ANALYZE SCHEMA (functional dependency and normal form analysis)
 
 ### Data Types Supported
 
@@ -320,6 +321,55 @@ TRUNCATE students;
 TRUNCATE TABLE enrollments;
 ```
 
+### 11. ANALYZE SCHEMA
+
+Analyze schema quality using functional dependencies (FDs), candidate keys, and normal forms.
+
+```sql
+-- Run schema analysis
+ANALYZE SCHEMA students;
+```
+
+If no FDs are stored for a table, MiniDB prompts for interactive FD input:
+
+```text
+No functional dependencies found. Please define FDs for table students.
+FD > roll -> name, dept
+FD > dept -> hod
+FD >
+```
+
+Stored FDs are reused in future analysis runs.
+
+Analysis output includes:
+- Candidate key and attribute closures
+- Prime and non-prime attribute classification
+- 1NF, 2NF, 3NF checks
+- Partial/transitive dependency detection
+- Anomaly mapping and decomposition suggestions
+
+For full theory and practical anomaly examples, see `NORMALIZATION_ANALYSIS_GUIDE.md`.
+
+### 12. Adaptive Indexing (Automatic)
+
+MiniDB includes an adaptive hybrid indexing system that optimizes repeated queries automatically.
+
+- Hash index for equality queries (average `O(1)` lookup)
+- Sorted index for range queries (binary search, `O(log n)` lookup)
+- Automatic index creation after 3 repeated query patterns on the same column
+- Transparent behavior: no query syntax changes required
+
+Example:
+
+```sql
+SELECT * FROM students WHERE id = 2;
+SELECT * FROM students WHERE id = 3;
+SELECT * FROM students WHERE id = 4;
+-- After threshold, same-pattern queries use index automatically
+```
+
+For full indexing details, see `INDEX_README.md`.
+
 ## 🎓 Educational Mode
 
 MiniDB features a unique **Educational Mode** that traces query execution step-by-step:
@@ -385,7 +435,8 @@ MiniDB/
 │   ├── alter_parser.py    # ALTER TABLE parser 
 │   ├── show_parser.py     # SHOW TABLES parser
 │   ├── describe_parser.py # DESCRIBE TABLE parser
-│   └── truncate_parser.py # TRUNCATE TABLE parser
+│   ├── truncate_parser.py # TRUNCATE TABLE parser
+│   └── analyze_parser.py  # ANALYZE SCHEMA parser
 │
 ├── storage/               # Modular storage engine 
 │   ├── __init__.py        # Main execute_command() router
@@ -399,6 +450,16 @@ MiniDB/
 │   ├── show_storage.py    # SHOW TABLES storage handler
 │   ├── describe_storage.py# DESCRIBE TABLE storage handler
 │   └── truncate_storage.py# TRUNCATE TABLE storage handler
+│
+├── normalization/         # Schema normalization analysis module
+│   ├── __init__.py
+│   ├── fd_manager.py
+│   ├── closure.py
+│   ├── key_finder.py
+│   ├── normal_form_checker.py
+│   ├── anomaly_detector.py
+│   ├── normalization_utils.py
+│   └── schema_analyzer.py
 │
 ├── data/                  # Table data files (.tbl)
 ├── metadata/              # Table metadata files (.meta)
@@ -417,7 +478,7 @@ MiniDB/
    - Symbol parsing
 
 2. **Parser Module** (`parser/`)
-   - 11 specialized parsers (one per command type)
+  - 12 specialized parsers (one per command type)
    - Syntax validation and AST generation
    - Command structure creation
    - Educational trace generation via `_display_parsed_command()`
@@ -435,6 +496,13 @@ MiniDB/
    - CRUD operations with constraint enforcement
    - Indexing integration
    - Average 78 lines per storage file
+
+5. **Normalization Module** (`normalization/`)
+  - Functional dependency persistence and retrieval
+  - Attribute closure and candidate key computation
+  - 1NF/2NF/3NF evaluation
+  - Partial/transitive dependency detection
+  - Anomaly mapping and decomposition guidance
 
 ### Data Storage Format
 

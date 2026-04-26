@@ -1,0 +1,18 @@
+# Python cache
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# MiniDB runtime/generated data
+data/
+metadata/
+
+# Generated index artifacts
+index/*.hash
+index/*.sorted
+index/query_stats.json
+
+# Optional local environment files
+.venv/
+venv/
+.env

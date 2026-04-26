@@ -53,7 +53,8 @@ def main():
 
         try:
             # Use new visual header
-            print_header(query)
+            if not query.upper().startswith("ANALYZE SCHEMA"):
+                print_header(query)
 
             command = parse_query(query)
             execute_query(command)

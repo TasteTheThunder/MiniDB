@@ -1,1 +1,0 @@
-{"columns": [["id", "INT"], ["name", "VARCHAR"], ["age", "INT"], ["grade", "CHAR"]], "primary_key": null}

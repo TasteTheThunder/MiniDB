@@ -13,6 +13,7 @@ from storage import (
 
 from visualizer import print_pipeline, print_trace
 import config
+from normalization.schema_analyzer import analyze_schema
 
 
 def execute_query(command):
@@ -215,6 +216,13 @@ def execute_query(command):
         )
 
         truncate_table(command)
+
+    # =========================
+    # ANALYZE SCHEMA
+    # =========================
+
+    elif cmd_type == "ANALYZE_SCHEMA":
+        analyze_schema(command["table"], interactive=True)
 
     else:
 

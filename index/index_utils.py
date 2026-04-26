@@ -2,7 +2,7 @@
 Utility functions for index operations
 """
 import os
-import json
+import re
 
 INDEX_DIR = "index"
 
@@ -69,17 +69,29 @@ def load_hash_index(file_obj):
     """
     Load hash index from file.
     
-    Format: value:row_number (one per line)
+    Supported formats:
+    1) Legacy: value:row_number
+    2) Readable:
+       {
+         value -> row0
+         value2 -> row1
+       }
     """
     index_data = {}
+    pattern = re.compile(r"^(.*?)\s*(?::|->)\s*(?:row)?(\d+)\s*,?$")
+
     for line in file_obj:
         line = line.strip()
-        if not line:
+        if not line or line in ("{", "}"):
             continue
         
         try:
-            value, row_num = line.split(':', 1)
-            row_num = int(row_num)
+            match = pattern.match(line)
+            if not match:
+                continue
+
+            value = match.group(1).strip()
+            row_num = int(match.group(2))
             
             if value not in index_data:
                 index_data[value] = []
@@ -94,21 +106,32 @@ def load_sorted_index(file_obj):
     """
     Load sorted index from file.
     
-    Format: value,row_number (one per line)
+    Supported formats:
+    1) Legacy: value,row_number
+    2) Readable:
+       [
+         (value, row0),
+         (value2, row1)
+       ]
+
     Returns list of (value, row_number) tuples sorted by value
     """
     index_data = []
+    tuple_pattern = re.compile(r"^\(?\s*(.*?)\s*,\s*(?:row)?(\d+)\s*\)?\s*,?$")
+
     for line in file_obj:
         line = line.strip()
-        if not line:
+        if not line or line in ("[", "]"):
             continue
         
         try:
-            parts = line.rsplit(',', 1)
-            if len(parts) == 2:
-                value = parts[0]
-                row_num = int(parts[1])
-                index_data.append((value, row_num))
+            match = tuple_pattern.match(line)
+            if not match:
+                continue
+
+            value = match.group(1).strip()
+            row_num = int(match.group(2))
+            index_data.append((value, row_num))
         except (ValueError, IndexError):
             continue
     
@@ -128,9 +151,11 @@ def save_hash_index(table, column, index_data):
     path = get_index_path(table, column, 'hash')
     
     with open(path, 'w') as f:
+        f.write("{\n")
         for value, row_numbers in sorted(index_data.items()):
             for row_num in sorted(row_numbers):
-                f.write(f"{value}:{row_num}\n")
+                f.write(f"  {value} -> row{row_num}\n")
+        f.write("}\n")
 
 
 def save_sorted_index(table, column, index_data):
@@ -146,8 +171,11 @@ def save_sorted_index(table, column, index_data):
     path = get_index_path(table, column, 'sorted')
     
     with open(path, 'w') as f:
-        for value, row_num in index_data:
-            f.write(f"{value},{row_num}\n")
+        f.write("[\n")
+        for i, (value, row_num) in enumerate(index_data):
+            suffix = "," if i < len(index_data) - 1 else ""
+            f.write(f"  ({value}, row{row_num}){suffix}\n")
+        f.write("]\n")
 
 
 def delete_index(table, column, index_type):

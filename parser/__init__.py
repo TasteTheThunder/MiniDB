@@ -9,6 +9,7 @@ from .alter_parser import parse_alter
 from .show_parser import parse_show
 from .describe_parser import parse_describe
 from .truncate_parser import parse_truncate
+from .analyze_parser import parse_analyze
 
 # Import tokenizer for main parse_query function
 import sys
@@ -63,6 +64,9 @@ def parse_query(query):
     
     elif command_type == "TRUNCATE":
         command = parse_truncate(tokens)
+
+    elif command_type == "ANALYZE":
+        command = parse_analyze(tokens)
     
     else:
         raise Exception(f"Unsupported command: {command_type}")
@@ -78,6 +82,9 @@ def _display_parsed_command(command):
     import config
     
     if config.get_mode() != "EDUCATIONAL":
+        return
+
+    if command.get("type") == "ANALYZE_SCHEMA":
         return
     
     lines = [f"Operation Type : {command['type']}"]
@@ -166,5 +173,6 @@ __all__ = [
     'parse_alter',
     'parse_show',
     'parse_describe',
-    'parse_truncate'
+    'parse_truncate',
+    'parse_analyze'
 ]

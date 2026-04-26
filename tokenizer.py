@@ -24,7 +24,9 @@ KEYWORDS = {
 
 "ALTER","COLUMN","MODIFY","ADD","RENAME","TO","CONSTRAINT",
 
-"SHOW","TABLES","DESCRIBE","TRUNCATE"
+"SHOW","TABLES","DESCRIBE","TRUNCATE",
+
+"ANALYZE","SCHEMA"
 
 }
 
@@ -86,6 +88,32 @@ def tokenize(query):
             continue
 
 
+        # ---------- COMPARISON OPERATORS ----------
+
+        if ch in [">", "<", "!"]:
+
+            if current:
+
+                tokens.append(current)
+
+                current = ""
+
+            # Handle two-character operators: >=, <=, !=
+            if i + 1 < len(query) and query[i + 1] == "=":
+
+                tokens.append(ch + "=")
+
+                i += 2
+
+            else:
+
+                tokens.append(ch)
+
+                i += 1
+
+            continue
+
+
         # ---------- SYMBOLS ----------
 
         if ch in "()=,;":
@@ -141,7 +169,13 @@ def tokenize(query):
     ]
 
 
-    if config.get_mode() == "EDUCATIONAL":
+    is_analyze_schema = (
+        len(tokens) >= 2
+        and tokens[0] == "ANALYZE"
+        and tokens[1] == "SCHEMA"
+    )
+
+    if config.get_mode() == "EDUCATIONAL" and not is_analyze_schema:
 
         print_trace(
 

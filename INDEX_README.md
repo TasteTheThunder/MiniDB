@@ -102,10 +102,8 @@ MiniDB Query Flow with Indexing
 | File | Lines | Content |
 |------|-------|---------|
 | `INDEX_DOCUMENTATION.md` | 600+ | Complete system documentation |
-| `INDEX_QUICK_REFERENCE.md` | 400+ | Quick API reference |
-| `INDEXING_EXAMPLES.py` | 300+ | Practical examples |
-| `IMPLEMENTATION_SUMMARY.md` | 500+ | Implementation summary |
-| `test_indexing_system.py` | 380 | 25 unit tests |
+| `README.md` | main | Project-level usage and command reference |
+| `NORMALIZATION_ANALYSIS_GUIDE.md` | main | Schema analysis and anomaly guide |
 
 ---
 
@@ -117,10 +115,10 @@ MiniDB Query Flow with Indexing
 from storage.select_storage import select_rows
 
 # Run equality queries
-for i in range(1, 6):
+for i in range(1, 4):
     select_rows('students', ('id', '=', str(i)))
 
-# Query 6 onwards automatically uses index
+# Query 4 onwards automatically uses index
 select_rows('students', ('id', '=', '2'))  # Uses hash index!
 ```
 
@@ -148,7 +146,7 @@ print(stats.get_all_stats())
 
 ## How It Works
 
-### Phase 1: Initial Queries (1-5)
+### Phase 1: Initial Queries (1-3)
 - No indices yet
 - Queries use full table scan
 - System tracks query patterns
@@ -159,7 +157,7 @@ Equality queries >= 3?  → Create HASH index
 Range queries >= 3?     → Create SORTED index
 ```
 
-### Phase 3: Optimized Queries (6+)
+### Phase 3: Optimized Queries (4+)
 - Indices available and cached
 - Queries use index for fast lookups
 - Query execution time dramatically improves
@@ -450,26 +448,25 @@ Example (sorted by value):
 
 ## Testing
 
-### Run All Tests
+### Quick Manual Test
 ```bash
 cd d:\MiniDB
-python test_indexing_system.py
+python minidb.py
 ```
 
-### Test Results
-```
-✓ 25 tests pass
-✓ 100% success rate
-✓ All components validated
-```
+Run these queries in MiniDB:
 
-### Test Coverage
-- Hash index operations
-- Sorted index with binary search
-- Query statistics tracking
-- Index manager functionality
-- Index persistence
-- Edge cases and error handling
+```sql
+SELECT * FROM students WHERE id = 1;
+SELECT * FROM students WHERE id = 2;
+SELECT * FROM students WHERE id = 3;
+SELECT * FROM students WHERE id = 4;  -- hash index should be used
+
+SELECT * FROM students WHERE age > 20;
+SELECT * FROM students WHERE age >= 21;
+SELECT * FROM students WHERE age < 23;
+SELECT * FROM students WHERE age > 21; -- sorted index should be used
+```
 
 ---
 
@@ -489,7 +486,7 @@ print(stats.get_stats('table', 'column'))
 manager = get_index_manager()
 # Delete existing
 manager.delete_hash_index('table', 'column')
-# Force recreate by running 5 queries again
+# Force recreate by running 3 matching queries again
 ```
 
 ### Q: Can I see query statistics?
@@ -523,21 +520,11 @@ For more information, see:
    - File format specifications
    - Performance analysis
 
-2. **[INDEX_QUICK_REFERENCE.md](INDEX_QUICK_REFERENCE.md)**
-   - Quick API reference
-   - Common operations
-   - Code snippets
-   - Cheat sheet
+2. **[README.md](README.md)**
+  - Command reference and project overview
 
-3. **[INDEXING_EXAMPLES.py](INDEXING_EXAMPLES.py)**
-   - 7 practical examples
-   - Step-by-step walkthroughs
-   - Use case demonstrations
-
-4. **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)**
-   - Implementation details
-   - Technical specifications
-   - Complete feature summary
+3. **[NORMALIZATION_ANALYSIS_GUIDE.md](NORMALIZATION_ANALYSIS_GUIDE.md)**
+  - Schema analysis and anomaly explanations
 
 ---
 
@@ -580,8 +567,8 @@ For more information, see:
 For questions about the implementation, refer to:
 - Code comments in the index modules
 - Docstrings in Python files
-- Test cases in `test_indexing_system.py`
-- Examples in `INDEXING_EXAMPLES.py`
+- Query stats in `index/query_stats.json`
+- Current index files in `index/*.hash` and `index/*.sorted`
 
 ---
 

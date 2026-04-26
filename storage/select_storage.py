@@ -43,6 +43,16 @@ def _get_filtered_rows_with_index(table, tbl, condition, columns, metadata):
     """
     manager = get_index_manager()
     
+    def _full_scan_filter(col_idx, op, val):
+        """Run a full scan filter and return (filtered_rows, all_rows)."""
+        all_rows = open(tbl).readlines()
+        filtered_rows = []
+        for row in all_rows:
+            vals = row.strip().split(",")
+            if compare(vals[col_idx], op, val):
+                filtered_rows.append(vals)
+        return filtered_rows, all_rows
+
     if not condition:
         # No condition, must do full table scan
         rows = open(tbl).readlines()
@@ -68,31 +78,39 @@ def _get_filtered_rows_with_index(table, tbl, condition, columns, metadata):
     
     if row_numbers is not None:
         # Index was found and used
-        filtered = []
-        all_rows = open(tbl).readlines()
-        
-        for row_num in sorted(row_numbers):
-            if row_num < len(all_rows):
-                filtered.append(all_rows[row_num].strip().split(","))
+        filtered, scanned_lines = _read_rows_by_numbers(tbl, sorted(row_numbers))
         
         print_trace("INDEX", [
             f"Index used for column '{col}'",
             f"Row numbers retrieved: {len(row_numbers)}"
         ])
+
+        # Safety fallback for stale indices:
+        # if an index says "no rows", verify with full scan once.
+        # This prevents false negatives when index files are outdated.
+        if len(row_numbers) == 0:
+            scan_filtered, scan_rows = _full_scan_filter(col_idx, op, val)
+            if scan_filtered:
+                print_trace("INDEX", [
+                    f"Stale index detected for {table}.{col}",
+                    "Falling back to full scan and rebuilding index"
+                ])
+
+                table_data = [row.strip().split(",") for row in scan_rows]
+                try:
+                    if op == '=':
+                        manager.create_hash_index(table, col, table_data, col_idx)
+                    else:
+                        manager.create_sorted_index(table, col, table_data, col_idx)
+                except Exception as e:
+                    print(f"Warning: Could not rebuild stale index: {e}")
+
+                return (scan_filtered, len(scan_rows), False)
         
-        return (filtered, len(all_rows), True)
+        return (filtered, scanned_lines, True)
     
     # No index available, do full table scan
-    rows = open(tbl).readlines()
-    filtered = []
-    
-    for row in rows:
-        vals = row.strip().split(",")
-        
-        if not compare(vals[col_idx], op, val):
-            continue
-        
-        filtered.append(vals)
+    filtered, rows = _full_scan_filter(col_idx, op, val)
     
     # Check if we should create index after threshold reached
     if should_create_hash or should_create_sorted:
@@ -125,16 +143,30 @@ def _read_rows_by_numbers(tbl, row_numbers):
         row_numbers: List of row numbers to read (0-indexed)
     
     Returns:
-        List of rows as list of values
+        Tuple (rows, scanned_lines)
     """
+    if not row_numbers:
+        return ([], 0)
+
     rows = []
-    all_lines = open(tbl).readlines()
-    
-    for row_num in row_numbers:
-        if row_num < len(all_lines):
-            rows.append(all_lines[row_num].strip().split(","))
-    
-    return rows
+    targets = set(row_numbers)
+    max_target = max(targets)
+    scanned_lines = 0
+
+    with open(tbl, "r") as f:
+        for idx, line in enumerate(f):
+            scanned_lines += 1
+
+            if idx in targets:
+                rows.append(line.strip().split(","))
+                if len(rows) == len(targets):
+                    break
+
+            # No need to continue reading once we pass the highest target row.
+            if idx >= max_target:
+                break
+
+    return (rows, scanned_lines)
 
 
 def select_rows(
