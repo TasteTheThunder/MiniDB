@@ -193,8 +193,61 @@ def _print_report(report):
             f"its {rhs_txt} information"
         )
 
-    def relation_name(idx):
-        return f"R{idx}"
+    def _normalize_name_token(token):
+        token = token.strip().lower()
+        if token.endswith("_id") and len(token) > 3:
+            token = token[:-3]
+
+        # Handle compact id abbreviations without underscore, e.g. sid/cid/tid.
+        if token.endswith("id") and "_" not in token and len(token) <= 4:
+            compact_map = {
+                "sid": "student",
+                "cid": "course",
+                "tid": "teacher",
+                "did": "department",
+            }
+            token = compact_map.get(token, token)
+
+        # Common short forms that improve readability across schemas.
+        replacements = {
+            "dept": "department",
+            "fac": "faculty",
+            "inst": "instructor",
+            "stud": "student",
+            "stu": "student",
+            "crs": "course",
+        }
+        return replacements.get(token, token)
+
+    def relation_name_from_lhs(lhs, idx, used_names):
+        if not lhs:
+            candidate = f"relation_{idx}"
+        else:
+            parts = [_normalize_name_token(token) for token in lhs]
+            parts = [p for p in parts if p]
+            candidate = "_".join(parts) if parts else f"relation_{idx}"
+
+        base = candidate
+        counter = 2
+        while candidate in used_names:
+            candidate = f"{base}_{counter}"
+            counter += 1
+        used_names.add(candidate)
+        return candidate
+
+    def base_relation_name(table_name, used_names):
+        name = table_name.lower().strip()
+        for suffix in ("_test", "_tmp", "_table", "_tbl"):
+            if name.endswith(suffix):
+                name = name[: -len(suffix)]
+                break
+
+        name = name.strip("_") or "base_relation"
+
+        if name in used_names:
+            name = f"{name}_base"
+        used_names.add(name)
+        return name
 
     def explain_partial(violation, candidate_key):
         lhs = set(violation.get("lhs", []))
@@ -294,22 +347,28 @@ def _print_report(report):
             attrs = tuple(sorted(set(violation.get("lhs", []) + violation.get("rhs", []))))
             if attrs not in seen:
                 seen.add(attrs)
-                relations.append(attrs)
+                relations.append({
+                    "lhs": tuple(violation.get("lhs", [])),
+                    "attrs": attrs,
+                })
 
         covered = set()
-        for attrs in relations:
-            covered.update(attrs)
+        for rel in relations:
+            covered.update(rel["attrs"])
 
         # Ensure full attribute coverage for any table shape.
         residual = sorted(set(report["attributes"]) - covered)
         base_attrs = sorted(set(report["candidate_key"]) | set(residual))
 
-        for idx, attrs in enumerate(relations, 1):
-            print(relation_name(idx))
-            print(f"  ({', '.join(attrs)})")
+        used_relation_names = set()
+
+        for idx, rel in enumerate(relations, 1):
+            rel_name = relation_name_from_lhs(rel["lhs"], idx, used_relation_names)
+            print(rel_name)
+            print(f"  ({', '.join(rel['attrs'])})")
             print()
 
-        print("BaseRelation")
+        print(base_relation_name(report["table"], used_relation_names))
         print(f"  ({format_attribute_list(base_attrs)})")
     else:
         print("Schema already in 3NF. No decomposition required.")
