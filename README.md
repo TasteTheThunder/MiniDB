@@ -572,6 +572,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **📚 Perfect for placement preparation and portfolio showcasing!**
 
-Made with ❤️ for learning and education
+Made with ❤️ for learning and education purpose
 
 </div>
