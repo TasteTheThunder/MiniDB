@@ -187,12 +187,28 @@ DROP DATABASE college_db;
 Create a new table with columns and optional primary key.
 
 ```sql
--- Simple table
-CREATE TABLE students (id INT, name VARCHAR, age INT) PRIMARY KEY (id);
+-- Simple table (table-level primary key)
+CREATE TABLE students (
+  id INT,
+  name VARCHAR,
+  age INT,
+  PRIMARY KEY (id)
+);
 
--- Composite primary key
-CREATE TABLE enrollments (student_id INT, course_id INT, grade DOUBLE) 
-    PRIMARY KEY (student_id, course_id);
+-- Composite primary key (table-level)
+CREATE TABLE enrollments (
+  student_id INT,
+  course_id INT,
+  grade DOUBLE,
+  PRIMARY KEY (student_id, course_id)
+);
+
+-- Inline primary key
+CREATE TABLE students (
+  id INT PRIMARY KEY,
+  name VARCHAR,
+  age INT
+);
 ```
 
 ### 2. INSERT INTO
@@ -424,7 +440,11 @@ NirvahaDB features a unique **Educational Mode** that traces query execution ste
 ```sql
 SET MODE EDUCATIONAL;
 
-CREATE TABLE students (id INT, name VARCHAR) PRIMARY KEY (id);
+CREATE TABLE students (
+  id INT,
+  name VARCHAR,
+  PRIMARY KEY (id)
+);
 ```
 
 **Output with Educational Traces:**
@@ -435,7 +455,7 @@ CREATE TABLE students (id INT, name VARCHAR) PRIMARY KEY (id);
 ╚════════════════════════════════════════════════╝
 Breaking query into tokens
 Tokens Generated:
-CREATE | TABLE | students | ( | id | INT | , | name | VARCHAR | ) | PRIMARY | KEY | ( | id | )
+CREATE | TABLE | students | ( | id | INT | , | name | VARCHAR | , | PRIMARY | KEY | ( | id | ) | )
 
 ╔════════════════════════════════════════════════╗
 ║              PARSER                            ║

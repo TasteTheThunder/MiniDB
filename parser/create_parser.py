@@ -60,6 +60,19 @@ def _parse_primary_key_segment(segment):
     return pk_columns if len(pk_columns) > 1 else pk_columns[0]
 
 
+def _is_primary_key_segment(segment):
+    if not segment:
+        return False
+
+    if segment[0] == "PRIMARY":
+        return len(segment) > 1 and segment[1] == "KEY"
+
+    if segment[0] == "CONSTRAINT":
+        return len(segment) > 3 and segment[2] == "PRIMARY" and segment[3] == "KEY"
+
+    return False
+
+
 def parse_create(tokens):
     """
     Parse CREATE TABLE statement
@@ -84,7 +97,9 @@ def parse_create(tokens):
         if not segment:
             continue
 
-        if segment[0] == "PRIMARY":
+        if _is_primary_key_segment(segment):
+            if primary_key is not None or table_level_pk is not None:
+                raise Exception("Multiple PRIMARY KEY declarations are not allowed")
             table_level_pk = _parse_primary_key_segment(segment)
             continue
 
@@ -107,7 +122,9 @@ def parse_create(tokens):
                 idx += 1
 
         # Inline PRIMARY KEY (e.g., id INT PRIMARY KEY)
-        if "PRIMARY" in segment and "KEY" in segment and primary_key is None:
+        if "PRIMARY" in segment and "KEY" in segment:
+            if primary_key is not None or table_level_pk is not None:
+                raise Exception("Multiple PRIMARY KEY declarations are not allowed")
             primary_key = col_name
 
         columns.append((col_name, col_type))
@@ -115,12 +132,11 @@ def parse_create(tokens):
     if table_level_pk is not None:
         primary_key = table_level_pk
 
-    # Support trailing table-level PRIMARY KEY after the column list.
+    # Disallow table-level PRIMARY KEY after the closing ')'.
     if end + 1 < len(tokens) and tokens[end + 1] == "PRIMARY":
-        if table_level_pk is not None or primary_key is not None:
-            raise Exception("Multiple PRIMARY KEY declarations are not allowed")
-        trailing_segment = tokens[end + 1:]
-        primary_key = _parse_primary_key_segment(trailing_segment)
+        raise Exception(
+            "PRIMARY KEY must be declared inside the CREATE TABLE parentheses"
+        )
 
     command = {
         "type": "CREATE",
