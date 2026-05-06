@@ -512,6 +512,16 @@ NirvahaDB/
 │   ├── normalization_utils.py
 │   └── schema_analyzer.py
 │
+├── index/                 # Indexing system
+│   ├── __init__.py
+│   ├── hash_index.py
+│   ├── index_manager.py
+│   ├── index_persistence.py
+│   ├── index_utils.py
+│   ├── query_stats.py
+│   └── sorted_index.py
+│   └── <db_name>/          # Generated per-database index artifacts (ignored in Git)
+│
 ├── data/                  # Table data files (.tbl)
 ├── metadata/              # Table metadata files (.meta)
 │
