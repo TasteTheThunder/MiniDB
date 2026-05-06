@@ -5,6 +5,7 @@ import os
 import re
 
 INDEX_DIR = "index"
+OFFSETS_EXT = "offsets"
 
 
 def _index_base_dir(database=None):
@@ -27,6 +28,70 @@ def get_index_path(table, column, index_type, database=None):
     """
     filename = f"{table}_{column}.{index_type}"
     return os.path.join(_index_base_dir(database), filename)
+
+
+def get_offsets_path(table, database=None):
+    """Get the file path for row offsets."""
+    filename = f"{table}.{OFFSETS_EXT}"
+    return os.path.join(_index_base_dir(database), filename)
+
+
+def build_row_offsets(tbl, table, database=None):
+    """
+    Build and persist row byte offsets for a table file.
+
+    Returns:
+        List of byte offsets for each row (0-indexed).
+    """
+    ensure_index_dir(database)
+    offsets = []
+
+    with open(tbl, "rb") as f:
+        while True:
+            pos = f.tell()
+            line = f.readline()
+            if not line:
+                break
+            offsets.append(pos)
+
+    path = get_offsets_path(table, database)
+    with open(path, "w") as f:
+        for offset in offsets:
+            f.write(f"{offset}\n")
+
+    return offsets
+
+
+def load_row_offsets(tbl, table, database=None):
+    """
+    Load row offsets, rebuilding if missing or stale.
+
+    Returns:
+        List of byte offsets for each row (0-indexed).
+    """
+    path = get_offsets_path(table, database)
+
+    if not os.path.exists(path):
+        return build_row_offsets(tbl, table, database)
+
+    try:
+        if os.path.getmtime(path) < os.path.getmtime(tbl):
+            return build_row_offsets(tbl, table, database)
+    except OSError:
+        return build_row_offsets(tbl, table, database)
+
+    offsets = []
+    try:
+        with open(path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                offsets.append(int(line))
+    except (OSError, ValueError):
+        return build_row_offsets(tbl, table, database)
+
+    return offsets
 
 
 def ensure_index_dir(database=None):

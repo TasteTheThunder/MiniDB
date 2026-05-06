@@ -9,6 +9,7 @@ from utils import (
     compare
 )
 from index.index_manager import get_index_manager
+from index.index_utils import build_row_offsets, load_row_offsets
 
 
 def _determine_operator_type(op):
@@ -63,10 +64,7 @@ def _get_filtered_rows_with_index(table, tbl, condition, columns, metadata, data
     col, op, val = condition
     
     if col not in columns:
-        # Column doesn't exist, full scan needed
-        rows = open(tbl).readlines()
-        filtered = [row.strip().split(",") for row in rows]
-        return (filtered, len(rows), False, None)
+        raise Exception(f"No column with name {col} found in {table}")
     
     col_idx = columns.index(col)
     
@@ -79,7 +77,12 @@ def _get_filtered_rows_with_index(table, tbl, condition, columns, metadata, data
     
     if row_numbers is not None:
         # Index was found and used
-        filtered, scanned_lines = _read_rows_by_numbers(tbl, sorted(row_numbers))
+        filtered, scanned_lines = _read_rows_by_numbers(
+            tbl,
+            sorted(row_numbers),
+            table=table,
+            database=database
+        )
         
         print_trace("INDEX", [
             f"Index used for column '{col}'",
@@ -139,7 +142,7 @@ def _get_filtered_rows_with_index(table, tbl, condition, columns, metadata, data
     return (filtered, len(rows), False, None)
 
 
-def _read_rows_by_numbers(tbl, row_numbers):
+def _read_rows_by_numbers(tbl, row_numbers, table=None, database=None):
     """
     Efficiently read specific rows from a file.
     
@@ -154,20 +157,39 @@ def _read_rows_by_numbers(tbl, row_numbers):
         return ([], 0)
 
     rows = []
-    targets = set(row_numbers)
-    max_target = max(targets)
+    targets = sorted(set(row_numbers))
+
+    if table:
+        offsets = load_row_offsets(tbl, table, database)
+        if offsets and targets:
+            max_target = targets[-1]
+            if max_target >= len(offsets):
+                offsets = build_row_offsets(tbl, table, database)
+
+            with open(tbl, "rb") as f:
+                for row_id in targets:
+                    if row_id < 0 or row_id >= len(offsets):
+                        continue
+                    f.seek(offsets[row_id])
+                    line = f.readline().decode("utf-8").strip()
+                    rows.append(line.split(","))
+
+            return (rows, len(rows))
+
+    # Fallback: sequential read when offsets are unavailable
+    targets_set = set(row_numbers)
+    max_target = max(targets_set)
     scanned_lines = 0
 
     with open(tbl, "r") as f:
         for idx, line in enumerate(f):
             scanned_lines += 1
 
-            if idx in targets:
+            if idx in targets_set:
                 rows.append(line.strip().split(","))
-                if len(rows) == len(targets):
+                if len(rows) == len(targets_set):
                     break
 
-            # No need to continue reading once we pass the highest target row.
             if idx >= max_target:
                 break
 
