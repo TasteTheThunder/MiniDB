@@ -28,14 +28,22 @@ DATA_DIR = "data"
 META_DIR = "metadata"
 
 
-def table_paths(table):
-
-    return (
-
-        os.path.join(DATA_DIR, table + ".tbl"),
-        os.path.join(META_DIR, table + ".meta")
-
-    )
+def table_paths(table, database=None):
+    """
+    Get paths for table data and metadata files.
+    If database is specified, returns database-specific paths.
+    If database is None, returns legacy paths (for backward compatibility).
+    """
+    if database:
+        return (
+            os.path.join(DATA_DIR, database, table + ".tbl"),
+            os.path.join(META_DIR, database, table + ".meta")
+        )
+    else:
+        return (
+            os.path.join(DATA_DIR, table + ".tbl"),
+            os.path.join(META_DIR, table + ".meta")
+        )
 
 
 def check_table_exists(tbl, meta):
@@ -90,10 +98,22 @@ def compare(cell, op, val):
         if op == "<":
             return cell_num < val_num
 
+        if op == ">=":
+            return cell_num >= val_num
+
+        if op == "<=":
+            return cell_num <= val_num
+
     except:
 
         if op == "=":
             return cell == val
+
+        if op == ">=":
+            return cell >= val
+
+        if op == "<=":
+            return cell <= val
 
     return False
 

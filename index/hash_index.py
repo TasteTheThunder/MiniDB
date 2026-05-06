@@ -13,7 +13,7 @@ class HashIndex:
     Structure: {value: [row_numbers]}
     """
     
-    def __init__(self, table, column):
+    def __init__(self, table, column, database=None):
         """
         Initialize hash index.
         
@@ -24,6 +24,7 @@ class HashIndex:
         self.table = table
         self.column = column
         self.data = {}  # {value: [row_numbers]}
+        self.database = database
     
     def build_from_table(self, table_data, column_index):
         """
@@ -97,11 +98,11 @@ class HashIndex:
     
     def save(self):
         """Save index to disk"""
-        save_hash_index(self.table, self.column, self.data)
+        save_hash_index(self.table, self.column, self.data, self.database)
     
     def load(self):
         """Load index from disk"""
-        data = load_index_data(self.table, self.column, 'hash')
+        data = load_index_data(self.table, self.column, 'hash', self.database)
         if data:
             self.data = data
             return True

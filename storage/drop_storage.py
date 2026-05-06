@@ -9,11 +9,12 @@ from utils import (
 )
 
 
-def drop_table(table):
+def drop_table(table, database=None):
     """
-    Drop (delete) a table completely
+    Drop (delete) a table completely.
+    If database is specified, drops database-specific table.
     """
-    tbl, meta = table_paths(table)
+    tbl, meta = table_paths(table, database)
     check_table_exists(tbl, meta)
 
     os.remove(tbl)

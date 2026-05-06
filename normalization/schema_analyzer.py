@@ -273,6 +273,8 @@ def _print_report(report):
     nf3 = report["normal_forms"]["3NF"]
     nf2v = nf2["violations"]
     nf3v = nf3["violations"]
+    nf2_effective = nf2["status"] and nf1["status"]
+    nf3_effective = nf3["status"] and nf2_effective
 
     top_box("MiniDB Schema Analyzer")
 
@@ -295,51 +297,55 @@ def _print_report(report):
 
     section("⚠️ NORMALIZATION STATUS")
     nf_state("1NF", nf1["status"])
-    nf_state("2NF", nf2["status"], "Partial Dependency" if nf2v else "")
-    nf_state("3NF", nf3["status"], "Transitive Dependency" if nf3v else "")
+    nf_state("2NF", nf2_effective)
+    nf_state("3NF", nf3_effective)
 
     section("🚨 DETECTED VIOLATIONS")
     if not (nf2v or nf3v):
         print("No violations detected.")
     else:
+        if not nf1["status"]:
+            print("[1NF - Prerequisite Not Met]")
+            print("  • A relation must satisfy 1NF before it can satisfy 2NF or 3NF.\n")
+
         if nf2v:
-            print("[2NF - Partial Dependency]\n")
+            print("[2NF - Partial Dependency]")
             for violation in nf2v:
-                print(f"  {fd_text(violation)}")
-                print(f"    Reason: {partial_reason(violation, report['candidate_key'])}\n")
-            print("👉 Problem: Data is duplicated across rows -> redundancy\n")
-        if nf3v:
-            print("[3NF - Transitive Dependency]\n")
+                print(f"  • FD     : {fd_text(violation)}")
+                print(f"    Reason : {partial_reason(violation, report['candidate_key'])}\n")
+            print("  👉 Problem: Data is duplicated across rows -> redundancy\n")
+        if not nf2_effective:
+            print("[3NF - Prerequisite Not Met]")
+            print("  • A relation must satisfy 2NF before it can satisfy 3NF.")
+            print("  • Since a partial dependency exists, the relation cannot be in 3NF.\n")
+        elif nf3v:
+            print("[3NF - Transitive Dependency]")
             for violation in nf3v:
-                print(f"  {fd_text(violation)}")
-                print(f"    Reason: {transitive_reason(violation)}\n")
-            print("👉 Problem: Indirect dependency -> causes inconsistency")
+                print(f"  • FD     : {fd_text(violation)}")
+                print(f"    Reason : {transitive_reason(violation)}\n")
+            print("  👉 Problem: Indirect dependency -> causes inconsistency")
 
     section("⚡ ANOMALY ANALYSIS")
     if report["anomalies"]:
         for anomaly_group in report["anomalies"]:
             dep = anomaly_group["dependency"].replace("->", "→")
             lhs, rhs = parse_dependency(anomaly_group["dependency"])
-            print(dep)
+            print(f"• {dep}")
 
             if "Update anomaly" in anomaly_group["anomalies"]:
-                print("  🔄 Update Anomaly:")
-                print(f"     {update_anomaly_text(lhs, rhs)}")
-                print()
+                print("  - 🔄 Update  : " + update_anomaly_text(lhs, rhs))
 
             if "Insertion anomaly" in anomaly_group["anomalies"]:
-                print("  ➕ Insert Anomaly:")
-                print(f"     {insert_anomaly_text(lhs, rhs)}")
-                print()
+                print("  - ➕ Insert  : " + insert_anomaly_text(lhs, rhs))
 
             if "Deletion anomaly" in anomaly_group["anomalies"]:
-                print("  ❌ Delete Anomaly:")
-                print(f"     {delete_anomaly_text(lhs, rhs)}")
-                print()
+                print("  - ❌ Delete  : " + delete_anomaly_text(lhs, rhs))
+
+            print()
     else:
         print("No anomaly risks detected.")
 
-    section("🧱 NORMALIZED SCHEMA (3NF)")
+    section("🧱 PROPOSED 3NF DECOMPOSITION")
     if nf2v or nf3v:
         relations = []
         seen = set()
@@ -358,7 +364,14 @@ def _print_report(report):
 
         # Ensure full attribute coverage for any table shape.
         residual = sorted(set(report["attributes"]) - covered)
-        base_attrs = sorted(set(report["candidate_key"]) | set(residual))
+        transitive_lhs = sorted({
+            attr
+            for violation in nf3v
+            for attr in violation.get("lhs", [])
+        })
+        base_attrs = sorted(
+            set(report["candidate_key"]) | set(residual) | set(transitive_lhs)
+        )
 
         used_relation_names = set()
 
@@ -374,7 +387,7 @@ def _print_report(report):
         print("Schema already in 3NF. No decomposition required.")
 
     section("🎯 FINAL RESULT")
-    if nf2["status"] and nf3["status"]:
+    if nf2_effective and nf3_effective:
         print("✔ Schema is already normalized to 3NF")
         print("✔ No redundancy issues detected")
         print("✔ No update/insert/delete anomalies from FDs")
@@ -388,18 +401,19 @@ def _print_report(report):
     bottom_box("Analysis Completed Successfully")
 
 
-def analyze_schema(table_name, interactive=True):
+def analyze_schema(table_name, interactive=True, database=None):
     """Analyze schema and evaluate normalization status.
 
     Args:
         table_name: Target table name.
         interactive: If True and FDs are missing, prompts for FD input.
+        database: Database name. If specified, analyzes table in that database.
 
     Returns:
         dict: Structured analysis report.
     """
     # Step 1: Load schema
-    schema = load_schema(table_name)
+    schema = load_schema(table_name, database=database)
     attributes = schema["attributes"]
     _visual_step(1, "Load Schema", [
         f"Table: {table_name}",
@@ -408,7 +422,7 @@ def analyze_schema(table_name, interactive=True):
     ])
 
     # Step 2: Load or request FDs
-    fds = get_fds(table_name)
+    fds = get_fds(table_name, database)
     step2_lines = []
     if fds is None and interactive:
         step2_lines.extend([
@@ -417,7 +431,7 @@ def analyze_schema(table_name, interactive=True):
         ])
         fds = _request_fd_input(table_name)
         if fds:
-            save_fds(table_name, fds)
+            save_fds(table_name, fds, database)
             step2_lines.append("FDs saved for future analysis.")
     elif fds is None:
         fds = []

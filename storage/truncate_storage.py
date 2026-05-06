@@ -5,11 +5,13 @@ from visualizer import print_trace, print_result
 from utils import table_paths, check_table_exists
 
 
-def truncate_table(command):
-    """Delete all rows from a table while keeping the structure"""
+def truncate_table(command, database=None):
+    """Delete all rows from a table while keeping the structure.
+    If database is specified, truncates table in that database.
+    """
     
     table = command["table"]
-    tbl, meta = table_paths(table)
+    tbl, meta = table_paths(table, database)
     check_table_exists(tbl, meta)
     
     # Count existing rows before truncation

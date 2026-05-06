@@ -11,11 +11,18 @@ META_DIR = "metadata"
 SUPPORTED_TYPES = ["INT", "DOUBLE", "CHAR", "VARCHAR"]
 
 
-def create_table(table, columns, primary_key=None):
+def create_table(table, columns, primary_key=None, database=None):
     """
-    Create a new table with specified columns and optional primary key
+    Create a new table with specified columns and optional primary key.
+    If database is specified, creates table in that database.
+    If database is None, uses legacy path (for backward compatibility).
     """
-    tbl, meta = table_paths(table)
+    tbl, meta = table_paths(table, database)
+
+    # Create directories if they don't exist
+    if database:
+        os.makedirs(os.path.dirname(tbl), exist_ok=True)
+        os.makedirs(os.path.dirname(meta), exist_ok=True)
 
     if os.path.exists(tbl):
         raise Exception("Table already exists")

@@ -11,16 +11,23 @@ STATS_FILE = "index/query_stats.json"
 class QueryStats:
     """Central repository for query statistics tracking"""
     
-    def __init__(self):
+    def __init__(self, database=None):
         """Initialize query stats, load from disk if available"""
         self.stats = {}
+        self.database = database
         self._load_from_disk()
+
+    def _stats_file_path(self):
+        if self.database:
+            return os.path.join("index", self.database, "query_stats.json")
+        return STATS_FILE
     
     def _load_from_disk(self):
         """Load query stats from disk"""
-        if os.path.exists(STATS_FILE):
+        stats_file = self._stats_file_path()
+        if os.path.exists(stats_file):
             try:
-                with open(STATS_FILE, 'r') as f:
+                with open(stats_file, 'r') as f:
                     self.stats = json.load(f)
             except Exception as e:
                 print(f"Error loading query stats: {e}")
@@ -31,8 +38,9 @@ class QueryStats:
     def _save_to_disk(self):
         """Save query stats to disk"""
         try:
-            os.makedirs("index", exist_ok=True)
-            with open(STATS_FILE, 'w') as f:
+            stats_file = self._stats_file_path()
+            os.makedirs(os.path.dirname(stats_file), exist_ok=True)
+            with open(stats_file, 'w') as f:
                 json.dump(self.stats, f, indent=2)
         except Exception as e:
             print(f"Error saving query stats: {e}")
@@ -151,12 +159,12 @@ class QueryStats:
 
 
 # Global instance
-_global_stats = None
+_global_stats = {}
 
 
-def get_query_stats():
-    """Get the global QueryStats instance"""
-    global _global_stats
-    if _global_stats is None:
-        _global_stats = QueryStats()
-    return _global_stats
+def get_query_stats(database=None):
+    """Get the QueryStats instance for a database"""
+    key = database or "__default__"
+    if key not in _global_stats:
+        _global_stats[key] = QueryStats(database)
+    return _global_stats[key]

@@ -25,12 +25,12 @@ class IndexPersistence:
             index_obj: HashIndex or SortedIndex object
         """
         if index_obj.__class__.__name__ == 'HashIndex':
-            save_hash_index(index_obj.table, index_obj.column, index_obj.data)
+            save_hash_index(index_obj.table, index_obj.column, index_obj.data, index_obj.database)
         elif index_obj.__class__.__name__ == 'SortedIndex':
-            save_sorted_index(index_obj.table, index_obj.column, index_obj.data)
+            save_sorted_index(index_obj.table, index_obj.column, index_obj.data, index_obj.database)
     
     @staticmethod
-    def load_hash_index_data(table, column):
+    def load_hash_index_data(table, column, database=None):
         """
         Load hash index data from disk.
         
@@ -41,10 +41,10 @@ class IndexPersistence:
         Returns:
             Dict or None
         """
-        return load_index_data(table, column, 'hash')
+        return load_index_data(table, column, 'hash', database)
     
     @staticmethod
-    def load_sorted_index_data(table, column):
+    def load_sorted_index_data(table, column, database=None):
         """
         Load sorted index data from disk.
         
@@ -55,10 +55,10 @@ class IndexPersistence:
         Returns:
             List or None
         """
-        return load_index_data(table, column, 'sorted')
+        return load_index_data(table, column, 'sorted', database)
     
     @staticmethod
-    def backup_index(table, column, index_type):
+    def backup_index(table, column, index_type, database=None):
         """
         Create a backup of an index file.
         
@@ -70,7 +70,7 @@ class IndexPersistence:
         Returns:
             True if backup successful, False otherwise
         """
-        source_path = get_index_path(table, column, index_type)
+        source_path = get_index_path(table, column, index_type, database)
         backup_path = source_path + ".backup"
         
         if not os.path.exists(source_path):
@@ -86,7 +86,7 @@ class IndexPersistence:
             return False
     
     @staticmethod
-    def restore_index_from_backup(table, column, index_type):
+    def restore_index_from_backup(table, column, index_type, database=None):
         """
         Restore an index from backup.
         
@@ -98,7 +98,7 @@ class IndexPersistence:
         Returns:
             True if restore successful, False otherwise
         """
-        source_path = get_index_path(table, column, index_type)
+        source_path = get_index_path(table, column, index_type, database)
         backup_path = source_path + ".backup"
         
         if not os.path.exists(backup_path):
@@ -114,7 +114,7 @@ class IndexPersistence:
             return False
     
     @staticmethod
-    def get_index_file_size(table, column, index_type):
+    def get_index_file_size(table, column, index_type, database=None):
         """
         Get the size of an index file in bytes.
         
@@ -126,13 +126,13 @@ class IndexPersistence:
         Returns:
             File size in bytes, or 0 if file doesn't exist
         """
-        path = get_index_path(table, column, index_type)
+        path = get_index_path(table, column, index_type, database)
         if os.path.exists(path):
             return os.path.getsize(path)
         return 0
     
     @staticmethod
-    def optimize_index_file(table, column, index_type):
+    def optimize_index_file(table, column, index_type, database=None):
         """
         Optimize an index file by rewriting it.
         Useful for removing deleted entries.
@@ -147,7 +147,7 @@ class IndexPersistence:
         """
         from .index_manager import get_index_manager
         
-        manager = get_index_manager()
+        manager = get_index_manager(database)
         
         if index_type == 'hash':
             index = manager.get_hash_index(table, column)
@@ -163,7 +163,7 @@ class IndexPersistence:
         return False
     
     @staticmethod
-    def export_index_metadata(table, column, index_type):
+    def export_index_metadata(table, column, index_type, database=None):
         """
         Export metadata about an index.
         
@@ -177,7 +177,7 @@ class IndexPersistence:
         """
         from .index_manager import get_index_manager
         
-        manager = get_index_manager()
+        manager = get_index_manager(database)
         
         if index_type == 'hash':
             index = manager.get_hash_index(table, column)

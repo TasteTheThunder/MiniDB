@@ -10,11 +10,12 @@ from utils import (
 )
 
 
-def delete_row(table, condition):
+def delete_row(table, condition, database=None):
     """
-    Delete rows from a table based on condition
+    Delete rows from a table based on condition.
+    If database is specified, deletes from database-specific table.
     """
-    tbl, meta = table_paths(table)
+    tbl, meta = table_paths(table, database)
     check_table_exists(tbl, meta)
 
     metadata = json.load(open(meta))

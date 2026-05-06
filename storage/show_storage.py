@@ -7,10 +7,18 @@ from visualizer import print_trace, print_result
 DATA_DIR = "data"
 
 
-def show_tables():
-    """Display all tables in the database"""
+def show_tables(database=None):
+    """Display all tables in the database.
+    If database is specified, shows tables in that database.
+    """
+    import os
     
-    if not os.path.exists(DATA_DIR):
+    if database:
+        data_dir = os.path.join("data", database)
+    else:
+        data_dir = "data"
+    
+    if not os.path.exists(data_dir):
         print_trace("STORAGE ENGINE", [
             "No data directory found",
             "No tables exist"
@@ -18,7 +26,7 @@ def show_tables():
         print_result("No tables in database")
         return
     
-    tables = [f.replace(".tbl", "") for f in os.listdir(DATA_DIR) if f.endswith(".tbl")]
+    tables = [f.replace(".tbl", "") for f in os.listdir(data_dir) if f.endswith(".tbl")]
     
     if not tables:
         print_trace("STORAGE ENGINE", [

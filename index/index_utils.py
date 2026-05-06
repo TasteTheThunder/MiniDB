@@ -7,7 +7,13 @@ import re
 INDEX_DIR = "index"
 
 
-def get_index_path(table, column, index_type):
+def _index_base_dir(database=None):
+    if database:
+        return os.path.join(INDEX_DIR, database)
+    return INDEX_DIR
+
+
+def get_index_path(table, column, index_type, database=None):
     """
     Get the file path for an index.
     
@@ -20,22 +26,23 @@ def get_index_path(table, column, index_type):
         File path for the index
     """
     filename = f"{table}_{column}.{index_type}"
-    return os.path.join(INDEX_DIR, filename)
+    return os.path.join(_index_base_dir(database), filename)
 
 
-def ensure_index_dir():
+def ensure_index_dir(database=None):
     """Create index directory if it doesn't exist"""
-    if not os.path.exists(INDEX_DIR):
-        os.makedirs(INDEX_DIR)
+    base_dir = _index_base_dir(database)
+    if not os.path.exists(base_dir):
+        os.makedirs(base_dir, exist_ok=True)
 
 
-def index_exists(table, column, index_type):
+def index_exists(table, column, index_type, database=None):
     """Check if an index file exists"""
-    path = get_index_path(table, column, index_type)
+    path = get_index_path(table, column, index_type, database)
     return os.path.exists(path)
 
 
-def load_index_data(table, column, index_type):
+def load_index_data(table, column, index_type, database=None):
     """
     Load index data from file.
     
@@ -47,7 +54,7 @@ def load_index_data(table, column, index_type):
     Returns:
         Index data (dict for hash, list for sorted) or None if not found
     """
-    path = get_index_path(table, column, index_type)
+    path = get_index_path(table, column, index_type, database)
     
     if not os.path.exists(path):
         return None
@@ -138,7 +145,7 @@ def load_sorted_index(file_obj):
     return index_data if index_data else None
 
 
-def save_hash_index(table, column, index_data):
+def save_hash_index(table, column, index_data, database=None):
     """
     Save hash index to file.
     
@@ -147,8 +154,8 @@ def save_hash_index(table, column, index_data):
         column: Column name
         index_data: Dict mapping values to list of row numbers
     """
-    ensure_index_dir()
-    path = get_index_path(table, column, 'hash')
+    ensure_index_dir(database)
+    path = get_index_path(table, column, 'hash', database)
     
     with open(path, 'w') as f:
         f.write("{\n")
@@ -158,7 +165,7 @@ def save_hash_index(table, column, index_data):
         f.write("}\n")
 
 
-def save_sorted_index(table, column, index_data):
+def save_sorted_index(table, column, index_data, database=None):
     """
     Save sorted index to file.
     
@@ -167,8 +174,8 @@ def save_sorted_index(table, column, index_data):
         column: Column name
         index_data: List of (value, row_number) tuples
     """
-    ensure_index_dir()
-    path = get_index_path(table, column, 'sorted')
+    ensure_index_dir(database)
+    path = get_index_path(table, column, 'sorted', database)
     
     with open(path, 'w') as f:
         f.write("[\n")
@@ -178,9 +185,9 @@ def save_sorted_index(table, column, index_data):
         f.write("]\n")
 
 
-def delete_index(table, column, index_type):
+def delete_index(table, column, index_type, database=None):
     """Delete an index file"""
-    path = get_index_path(table, column, index_type)
+    path = get_index_path(table, column, index_type, database)
     if os.path.exists(path):
         try:
             os.remove(path)
@@ -191,7 +198,7 @@ def delete_index(table, column, index_type):
     return False
 
 
-def list_indices(table):
+def list_indices(table, database=None):
     """
     List all indices for a table.
     
@@ -200,10 +207,12 @@ def list_indices(table):
     """
     indices = []
     
-    if not os.path.exists(INDEX_DIR):
+    base_dir = _index_base_dir(database)
+
+    if not os.path.exists(base_dir):
         return indices
-    
-    for filename in os.listdir(INDEX_DIR):
+
+    for filename in os.listdir(base_dir):
         if filename.startswith(table + "_"):
             parts = filename.replace(table + "_", "").rsplit(".", 1)
             if len(parts) == 2:

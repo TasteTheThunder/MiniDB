@@ -24,7 +24,7 @@ def _determine_operator_type(op):
     return 'equality' if op == '=' else 'range'
 
 
-def _get_filtered_rows_with_index(table, tbl, condition, columns, metadata):
+def _get_filtered_rows_with_index(table, tbl, condition, columns, metadata, database=None):
     """
     Attempt to use index for filtering, fallback to full scan.
     
@@ -36,12 +36,13 @@ def _get_filtered_rows_with_index(table, tbl, condition, columns, metadata):
         metadata: Table metadata dict
     
     Returns:
-        Tuple (filtered_rows, rows_scanned, used_index)
+        Tuple (filtered_rows, rows_scanned, used_index, index_hits)
             - filtered_rows: list of row values [val1, val2, ...]
             - rows_scanned: number of rows examined
             - used_index: bool indicating if index was used
+            - index_hits: number of row ids returned by index (None if no index)
     """
-    manager = get_index_manager()
+    manager = get_index_manager(database)
     
     def _full_scan_filter(col_idx, op, val):
         """Run a full scan filter and return (filtered_rows, all_rows)."""
@@ -57,7 +58,7 @@ def _get_filtered_rows_with_index(table, tbl, condition, columns, metadata):
         # No condition, must do full table scan
         rows = open(tbl).readlines()
         filtered = [row.strip().split(",") for row in rows]
-        return (filtered, len(rows), False)
+        return (filtered, len(rows), False, None)
     
     col, op, val = condition
     
@@ -65,7 +66,7 @@ def _get_filtered_rows_with_index(table, tbl, condition, columns, metadata):
         # Column doesn't exist, full scan needed
         rows = open(tbl).readlines()
         filtered = [row.strip().split(",") for row in rows]
-        return (filtered, len(rows), False)
+        return (filtered, len(rows), False, None)
     
     col_idx = columns.index(col)
     
@@ -105,9 +106,9 @@ def _get_filtered_rows_with_index(table, tbl, condition, columns, metadata):
                 except Exception as e:
                     print(f"Warning: Could not rebuild stale index: {e}")
 
-                return (scan_filtered, len(scan_rows), False)
-        
-        return (filtered, scanned_lines, True)
+                return (scan_filtered, len(scan_rows), False, None)
+
+        return (filtered, scanned_lines, True, len(row_numbers))
     
     # No index available, do full table scan
     filtered, rows = _full_scan_filter(col_idx, op, val)
@@ -119,19 +120,23 @@ def _get_filtered_rows_with_index(table, tbl, condition, columns, metadata):
             all_rows = open(tbl).readlines()
             table_data = [row.strip().split(",") for row in all_rows]
             
-            print_trace("INDEX CREATION", [
-                f"Building index for {table}.{col}",
-                f"{'HASH' if should_create_hash else 'SORTED'} index"
-            ])
-            
-            if should_create_hash:
-                manager.create_hash_index(table, col, table_data, col_idx)
-            else:
-                manager.create_sorted_index(table, col, table_data, col_idx)
+            create_hash = op == "=" and should_create_hash
+            create_sorted = op != "=" and should_create_sorted
+
+            if create_hash or create_sorted:
+                print_trace("INDEX CREATION", [
+                    f"Building index for {table}.{col}",
+                    f"{'HASH' if create_hash else 'SORTED'} index"
+                ])
+
+                if create_hash:
+                    manager.create_hash_index(table, col, table_data, col_idx)
+                else:
+                    manager.create_sorted_index(table, col, table_data, col_idx)
         except Exception as e:
             print(f"Warning: Could not create index: {e}")
     
-    return (filtered, len(rows), False)
+    return (filtered, len(rows), False, None)
 
 
 def _read_rows_by_numbers(tbl, row_numbers):
@@ -177,28 +182,34 @@ def select_rows(
         agg_column=None,
         group_by=None,
         order_by=None,
-        limit=None
+        limit=None,
+        database=None
 ):
     """
     Query data from a table with various filtering and aggregation options.
     Uses adaptive indexing when available.
+    If database is specified, queries database-specific table.
     """
-    tbl, meta = table_paths(table)
+    tbl, meta = table_paths(table, database)
     check_table_exists(tbl, meta)
 
     metadata = json.load(open(meta))
     columns = [c[0] for c in metadata["columns"]]
 
     # Use index-aware filtering
-    filtered, rows_scanned, used_index = _get_filtered_rows_with_index(
-        table, tbl, condition, columns, metadata
+    filtered, rows_scanned, used_index, index_hits = _get_filtered_rows_with_index(
+        table, tbl, condition, columns, metadata, database
     )
 
-    print_trace("STORAGE ENGINE", [
+    trace_lines = [
         f"Open File : {tbl}",
         f"Rows Scanned : {rows_scanned}",
         f"Index Used : {'Yes' if used_index else 'No'}"
-    ])
+    ]
+    if used_index:
+        trace_lines.append(f"Index Hits : {index_hits}")
+
+    print_trace("STORAGE ENGINE", trace_lines)
 
     # ===========================
     # ORDER BY (for non-aggregated queries)

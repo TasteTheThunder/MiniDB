@@ -2,6 +2,20 @@
 Parser for ALTER TABLE command
 """
 
+
+def _skip_size(tokens, i):
+    if i < len(tokens) and tokens[i] == "(":
+        depth = 1
+        i += 1
+        while i < len(tokens) and depth > 0:
+            if tokens[i] == "(":
+                depth += 1
+            elif tokens[i] == ")":
+                depth -= 1
+            i += 1
+    return i
+
+
 def parse_alter(tokens):
     """
     Parse ALTER TABLE statement
@@ -46,11 +60,12 @@ def parse_alter(tokens):
     # ============ ALTER TABLE ... ADD ============
     elif operation == "ADD":
         # Check what we're adding
-        if tokens[4] == "COLUMN":
+        if tokens[4] == "COLUMN" or (len(tokens) > 4 and tokens[4] not in ["PRIMARY", "CONSTRAINT"]):
             # ADD COLUMN - supports multiple columns
             # ALTER TABLE students ADD COLUMN age INT, grade DOUBLE
+            # ALTER TABLE students ADD age INT
             columns_to_add = []
-            i = 5
+            i = 5 if tokens[4] == "COLUMN" else 4
             while i < len(tokens):
                 if i + 1 >= len(tokens):
                     break
@@ -58,6 +73,7 @@ def parse_alter(tokens):
                 col_type = tokens[i + 1]
                 columns_to_add.append((col_name, col_type))
                 i += 2
+                i = _skip_size(tokens, i)
                 # Skip comma if present
                 if i < len(tokens) and tokens[i] == ",":
                     i += 1
@@ -135,10 +151,15 @@ def parse_alter(tokens):
 
     # ============ ALTER TABLE ... MODIFY COLUMN col_name new_datatype ============
     elif operation == "MODIFY":
-        if tokens[4] != "COLUMN":
-            raise Exception("Invalid MODIFY syntax")
-        column_name = tokens[5]
-        new_datatype = tokens[6]
+        if tokens[4] == "COLUMN":
+            column_name = tokens[5]
+            new_datatype = tokens[6]
+            i = 7
+        else:
+            column_name = tokens[4]
+            new_datatype = tokens[5]
+            i = 6
+        _skip_size(tokens, i)
         command = {
             "type": "ALTER",
             "table": table,

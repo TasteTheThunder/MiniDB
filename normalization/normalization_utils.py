@@ -6,9 +6,11 @@ import re
 from utils import table_paths, check_table_exists
 
 
-def load_schema(table_name):
-    """Load table schema from metadata."""
-    tbl, meta = table_paths(table_name)
+def load_schema(table_name, database=None):
+    """Load table schema from metadata.
+    If database is specified, loads schema from that database.
+    """
+    tbl, meta = table_paths(table_name, database)
     check_table_exists(tbl, meta)
 
     with open(meta, "r") as f:

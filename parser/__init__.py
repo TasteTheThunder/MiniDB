@@ -10,6 +10,7 @@ from .show_parser import parse_show
 from .describe_parser import parse_describe
 from .truncate_parser import parse_truncate
 from .analyze_parser import parse_analyze
+from .database_parser import parse_database
 
 # Import tokenizer for main parse_query function
 import sys
@@ -35,41 +36,50 @@ def parse_query(query):
     # Route to appropriate parser based on command type
     command = None
     
-    if command_type == "CREATE":
-        command = parse_create(tokens)
+    # Check for database commands first (CREATE DATABASE, DROP DATABASE, SHOW DATABASES, USE)
+    if len(tokens) >= 2:
+        second_token = tokens[1].upper()
+        if second_token == "DATABASE" or (command_type == "SHOW" and second_token == "DATABASES"):
+            command = parse_database(tokens)
+        elif command_type == "USE":
+            command = parse_database(tokens)
     
-    elif command_type == "INSERT":
-        command = parse_insert(tokens)
-    
-    elif command_type == "SELECT":
-        command = parse_select(tokens)
-    
-    elif command_type == "UPDATE":
-        command = parse_update(tokens)
-    
-    elif command_type == "DELETE":
-        command = parse_delete(tokens)
-    
-    elif command_type == "DROP":
-        command = parse_drop(tokens)
-    
-    elif command_type == "ALTER":
-        command = parse_alter(tokens)
-    
-    elif command_type == "SHOW":
-        command = parse_show(tokens)
-    
-    elif command_type == "DESCRIBE":
-        command = parse_describe(tokens)
-    
-    elif command_type == "TRUNCATE":
-        command = parse_truncate(tokens)
+    if command is None:
+        if command_type == "CREATE":
+            command = parse_create(tokens)
+        
+        elif command_type == "INSERT":
+            command = parse_insert(tokens)
+        
+        elif command_type == "SELECT":
+            command = parse_select(tokens)
+        
+        elif command_type == "UPDATE":
+            command = parse_update(tokens)
+        
+        elif command_type == "DELETE":
+            command = parse_delete(tokens)
+        
+        elif command_type == "DROP":
+            command = parse_drop(tokens)
+        
+        elif command_type == "ALTER":
+            command = parse_alter(tokens)
+        
+        elif command_type == "SHOW":
+            command = parse_show(tokens)
+        
+        elif command_type == "DESCRIBE":
+            command = parse_describe(tokens)
+        
+        elif command_type == "TRUNCATE":
+            command = parse_truncate(tokens)
 
-    elif command_type == "ANALYZE":
-        command = parse_analyze(tokens)
-    
-    else:
-        raise Exception(f"Unsupported command: {command_type}")
+        elif command_type == "ANALYZE":
+            command = parse_analyze(tokens)
+        
+        else:
+            raise Exception(f"Unsupported command: {command_type}")
     
     # Display parsed command structure
     _display_parsed_command(command)

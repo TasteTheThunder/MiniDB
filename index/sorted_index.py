@@ -14,7 +14,7 @@ class SortedIndex:
     Uses binary search for efficient range queries
     """
     
-    def __init__(self, table, column):
+    def __init__(self, table, column, database=None):
         """
         Initialize sorted index.
         
@@ -25,6 +25,7 @@ class SortedIndex:
         self.table = table
         self.column = column
         self.data = []  # [(value, row_num), ...] sorted by value
+        self.database = database
     
     def build_from_table(self, table_data, column_index):
         """
@@ -213,11 +214,11 @@ class SortedIndex:
     
     def save(self):
         """Save index to disk"""
-        save_sorted_index(self.table, self.column, self.data)
+        save_sorted_index(self.table, self.column, self.data, self.database)
     
     def load(self):
         """Load index from disk"""
-        data = load_index_data(self.table, self.column, 'sorted')
+        data = load_index_data(self.table, self.column, 'sorted', self.database)
         if data:
             self.data = data
             self._sort_data()

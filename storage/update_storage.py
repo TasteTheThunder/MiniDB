@@ -12,11 +12,12 @@ from utils import (
 )
 
 
-def update_row(table, set_data, condition):
+def update_row(table, set_data, condition, database=None):
     """
-    Update rows in a table based on condition
+    Update rows in a table based on condition.
+    If database is specified, updates database-specific table.
     """
-    tbl, meta = table_paths(table)
+    tbl, meta = table_paths(table, database)
     check_table_exists(tbl, meta)
 
     metadata = json.load(open(meta))

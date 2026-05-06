@@ -20,11 +20,12 @@ class IndexManager:
     Handles creation, loading, caching, and usage of indices.
     """
     
-    def __init__(self):
+    def __init__(self, database=None):
         """Initialize index manager"""
         self.indices = {}  # {(table, column, type): index_object}
-        self.stats = get_query_stats()
-        ensure_index_dir()
+        self.database = database
+        self.stats = get_query_stats(database)
+        ensure_index_dir(database)
     
     def _cache_key(self, table, column, index_type):
         """Generate cache key for an index"""
@@ -43,7 +44,7 @@ class IndexManager:
         Returns:
             HashIndex object
         """
-        index = HashIndex(table, column)
+        index = HashIndex(table, column, self.database)
         index.build_from_table(table_data, column_index)
         index.save()
         
@@ -65,7 +66,7 @@ class IndexManager:
         Returns:
             SortedIndex object
         """
-        index = SortedIndex(table, column)
+        index = SortedIndex(table, column, self.database)
         index.build_from_table(table_data, column_index)
         index.save()
         
@@ -92,8 +93,8 @@ class IndexManager:
             return self.indices[key]
         
         # Try to load from disk
-        if index_exists(table, column, 'hash'):
-            index = HashIndex(table, column)
+        if index_exists(table, column, 'hash', self.database):
+            index = HashIndex(table, column, self.database)
             if index.load():
                 self.indices[key] = index
                 return index
@@ -118,8 +119,8 @@ class IndexManager:
             return self.indices[key]
         
         # Try to load from disk
-        if index_exists(table, column, 'sorted'):
-            index = SortedIndex(table, column)
+        if index_exists(table, column, 'sorted', self.database):
+            index = SortedIndex(table, column, self.database)
             if index.load():
                 self.indices[key] = index
                 return index
@@ -131,18 +132,18 @@ class IndexManager:
         key = self._cache_key(table, column, 'hash')
         if key in self.indices:
             del self.indices[key]
-        return delete_index(table, column, 'hash')
+        return delete_index(table, column, 'hash', self.database)
     
     def delete_sorted_index(self, table, column):
         """Delete a sorted index"""
         key = self._cache_key(table, column, 'sorted')
         if key in self.indices:
             del self.indices[key]
-        return delete_index(table, column, 'sorted')
+        return delete_index(table, column, 'sorted', self.database)
     
     def list_indices(self, table):
         """List all indices for a table"""
-        return list_indices(table)
+        return list_indices(table, self.database)
     
     def search_with_index(self, table, column, operator, value):
         """
@@ -204,10 +205,10 @@ class IndexManager:
         should_create_sorted = self.stats.should_create_sorted_index(table, column)
         
         # Check if we already created these indices
-        if should_create_hash and not index_exists(table, column, 'hash'):
+        if should_create_hash and not index_exists(table, column, 'hash', self.database):
             return (True, should_create_sorted)
         
-        if should_create_sorted and not index_exists(table, column, 'sorted'):
+        if should_create_sorted and not index_exists(table, column, 'sorted', self.database):
             return (should_create_hash, True)
         
         return (False, False)
@@ -258,13 +259,13 @@ class IndexManager:
         return self.stats.get_stats(table, column)
 
 
-# Global instance
-_global_manager = None
+# Global instances per database
+_global_managers = {}
 
 
-def get_index_manager():
-    """Get the global IndexManager instance"""
-    global _global_manager
-    if _global_manager is None:
-        _global_manager = IndexManager()
-    return _global_manager
+def get_index_manager(database=None):
+    """Get the IndexManager instance for a database"""
+    key = database or "__default__"
+    if key not in _global_managers:
+        _global_managers[key] = IndexManager(database)
+    return _global_managers[key]

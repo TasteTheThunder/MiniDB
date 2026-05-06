@@ -11,7 +11,7 @@ META_DIR = "metadata"
 SUPPORTED_TYPES = ["INT", "DOUBLE", "CHAR", "VARCHAR"]
 
 
-def alter_table(command):
+def alter_table(command, database=None):
     """
     Handles all ALTER TABLE operations:
     - ADD_COLUMN: Add a new column
@@ -21,11 +21,13 @@ def alter_table(command):
     - RENAME_TABLE: Rename the table
     - ADD_PRIMARY_KEY: Add primary key constraint
     - DROP_PRIMARY_KEY: Remove primary key constraint
+    
+    If database is specified, alters table in that database.
     """
     
     table = command["table"]
     operation = command["operation"]
-    tbl, meta = table_paths(table)
+    tbl, meta = table_paths(table, database)
     check_table_exists(tbl, meta)
     
     metadata = json.load(open(meta))
@@ -193,7 +195,7 @@ def alter_table(command):
     elif operation == "RENAME_TABLE":
         new_table_name = command["new_table_name"]
         
-        new_tbl, new_meta = table_paths(new_table_name)
+        new_tbl, new_meta = table_paths(new_table_name, database)
         
         if os.path.exists(new_tbl) or os.path.exists(new_meta):
             raise Exception(f"Table {new_table_name} already exists")

@@ -1,8 +1,8 @@
-# MiniDB Adaptive Hybrid Indexing System - README
+# NirvahaDB Adaptive Hybrid Indexing System - README
 
 ## Overview
 
-This document describes the complete implementation of an **Adaptive Hybrid Indexing System** for MiniDB - an educational SQL database written in Python.
+This document describes the complete implementation of an **Adaptive Hybrid Indexing System** for NirvahaDB - an educational SQL database written in Python.
 
 The system automatically creates and maintains indices based on query patterns, providing significant performance improvements without requiring manual configuration.
 
@@ -33,7 +33,7 @@ The system automatically creates and maintains indices based on query patterns, 
 ## Architecture
 
 ```
-MiniDB Query Flow with Indexing
+NirvahaDB Query Flow with Indexing
 ┌─────────────────┐
 │  SQL Query      │
 └────────┬────────┘
@@ -230,6 +230,24 @@ SELECT * FROM students WHERE age <= 30
 ---
 
 ## Performance Impact
+
+### Understanding Index Metrics
+
+MiniDB shows two different costs when an index is used:
+
+- **Index Hits**: number of row ids returned by the index.
+- **Rows Scanned**: number of table rows read from the data file to fetch those ids.
+
+Because rows are stored in a flat file, the engine reads lines until it reaches the
+highest row id in the result set. This is why Rows Scanned can be larger than Index Hits.
+
+**Example (students table):**
+
+```
+Query: SELECT * FROM students WHERE age > 21
+Index Hits : 2   (row ids [1, 3])
+Rows Scanned : 4 (reads rows 0..3 to fetch those ids)
+```
 
 ### Without Index (Full Table Scan)
 ```

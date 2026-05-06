@@ -1,6 +1,6 @@
-# 🎓 MiniDB - Educational SQL Database Management System
+# 🚀 NirvahaDB - Educational SQL Database Management System
 
-A lightweight, educational SQL database management system built entirely in Python from scratch. MiniDB demonstrates core database concepts including ACID properties, indexing, normalization, and query processing without relying on external database libraries.
+A lightweight, educational SQL database management system built entirely in Python from scratch. NirvahaDB demonstrates core database concepts including ACID properties, indexing, normalization, and query processing without relying on external database libraries.
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
@@ -9,9 +9,9 @@ A lightweight, educational SQL database management system built entirely in Pyth
 
 ## 🎯 Overview
 
-MiniDB is a fully functional file based relational database management system designed for educational purposes. It implements fundamental database concepts from the ground up, providing insights into how production databases work internally.
+NirvahaDB is a fully functional file based relational database management system designed for educational purposes. It implements fundamental database concepts from the ground up, providing insights into how production databases work internally.
 
-### Why MiniDB?
+### Why NirvahaDB?
 
 - **Educational**: Trace query execution step-by-step to understand database internals
 - **Lightweight**: No external dependencies, pure Python implementation
@@ -79,25 +79,25 @@ MiniDB is a fully functional file based relational database management system de
                   ▼
 ┌─────────────────────────────────────────────────┐
 │              Tokenizer                          │
-│  (Lexical Analysis - Breaks query into tokens) │
+│  (Lexical Analysis - Breaks query into tokens)  │
 └─────────────────┬───────────────────────────────┘
                   │
                   ▼
 ┌─────────────────────────────────────────────────┐
 │              Parser                             │
-│  (Syntax Analysis - Validates & structures)    │
+│  (Syntax Analysis - Validates & structures)     │
 └─────────────────┬───────────────────────────────┘
                   │
                   ▼
 ┌─────────────────────────────────────────────────┐
 │              Executor                           │
-│  (Command execution orchestrator)              │
+│  (Command execution orchestrator)               │
 └─────────────────┬───────────────────────────────┘
                   │
                   ▼
 ┌─────────────────────────────────────────────────┐
 │           Storage Engine                        │
-│  (File I/O, Data persistence, Indexing)        │
+│  (File I/O, Data persistence, Indexing)         │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -117,11 +117,11 @@ git clone https://github.com/yourusername/minidb.git
 # Navigate to project directory
 cd minidb
 
-# Run MiniDB
+# Run NirvahaDB
 python minidb.py
 ```
 
-MiniDB creates `data/` and `metadata/` automatically on startup.
+NirvahaDB creates `data/` and `metadata/` automatically on startup.
 If you run internal modules directly (without `minidb.py`), create them manually:
 
 ```bash
@@ -130,7 +130,7 @@ mkdir data metadata
 
 ## 💻 Usage
 
-### Starting MiniDB
+### Starting NirvahaDB
 
 ```bash
 python minidb.py
@@ -139,11 +139,11 @@ python minidb.py
 ### Interactive Mode
 
 ```
-🎓 Welcome to MiniDB
+🚀 Welcome to NirvahaDB
 Current Mode: EDUCATIONAL
-Type 'exit' to quit
+Type 'HELP' for commands, or 'EXIT' to quit
 
-MiniDB > 
+NirvahaDB > 
 ```
 
 ### Setting Modes
@@ -157,9 +157,30 @@ SET MODE PRODUCTION;
 
 -- Check current mode
 SHOW MODE;
+
+-- Clear the screen
+CLEAR;
 ```
 
 ## 📚 Supported SQL Commands
+
+### 0. DATABASE COMMANDS
+
+Create, switch, list, and drop databases.
+
+```sql
+-- Create a database
+CREATE DATABASE college_db;
+
+-- List databases
+SHOW DATABASES;
+
+-- Use a database
+USE college_db;
+
+-- Drop a database
+DROP DATABASE college_db;
+```
 
 ### 1. CREATE TABLE
 
@@ -285,11 +306,17 @@ ALTER TABLE students RENAME TO pupils;
 -- Add primary key constraint
 ALTER TABLE students ADD PRIMARY KEY (id);
 
+-- Add primary key with CONSTRAINT keyword
+ALTER TABLE students ADD CONSTRAINT PRIMARY KEY (id);
+
 -- Add composite primary key
 ALTER TABLE enrollments ADD PRIMARY KEY (student_id, course_id);
 
 -- Drop primary key
 ALTER TABLE students DROP PRIMARY KEY;
+
+-- Drop primary key with CONSTRAINT keyword
+ALTER TABLE students DROP CONSTRAINT PRIMARY KEY;
 ```
 
 ### 8. SHOW TABLES
@@ -337,7 +364,7 @@ Analyze schema quality using functional dependencies (FDs), candidate keys, and 
 ANALYZE SCHEMA students;
 ```
 
-If no FDs are stored for a table, MiniDB prompts for interactive FD input:
+If no FDs are stored for a table, NirvahaDB prompts for interactive FD input:
 
 ```text
 No functional dependencies found. Please define FDs for table students.
@@ -359,7 +386,7 @@ For full theory and practical anomaly examples, see `NORMALIZATION_ANALYSIS_GUID
 
 ### 12. Adaptive Indexing (Automatic)
 
-MiniDB includes an adaptive hybrid indexing system that optimizes repeated queries automatically.
+NirvahaDB includes an adaptive hybrid indexing system that optimizes repeated queries automatically.
 
 - Hash index for equality queries (average `O(1)` lookup)
 - Sorted index for range queries (binary search, `O(log n)` lookup)
@@ -377,9 +404,22 @@ SELECT * FROM students WHERE id = 4;
 
 For full indexing details, see `INDEX_README.md`.
 
+### 13. Utility Commands
+
+```sql
+-- Clear the screen
+CLEAR;
+
+-- Show help
+HELP;
+
+-- Exit the CLI
+EXIT;
+```
+
 ## 🎓 Educational Mode
 
-MiniDB features a unique **Educational Mode** that traces query execution step-by-step:
+NirvahaDB features a unique **Educational Mode** that traces query execution step-by-step:
 
 ```sql
 SET MODE EDUCATIONAL;
@@ -426,7 +466,7 @@ Note for schema analysis:
 ## 📁 Project Structure
 
 ```
-MiniDB/
+NirvahaDB/
 │
 ├── minidb.py              # Main entry point and REPL
 ├── tokenizer.py           # Lexical analyzer

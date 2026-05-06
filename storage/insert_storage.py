@@ -11,11 +11,17 @@ from utils import (
 )
 
 
-def insert_row(table, values, insert_columns=None):
+def insert_row(table, values, insert_columns=None, database=None):
     """
-    Insert a row into a table
+    Insert a row into a table.
+    If database is specified, inserts into database-specific table.
     """
-    tbl, meta = table_paths(table)
+    import os
+    tbl, meta = table_paths(table, database)
+    # Create directories if needed
+    if database:
+        os.makedirs(os.path.dirname(tbl), exist_ok=True)
+        os.makedirs(os.path.dirname(meta), exist_ok=True)
     check_table_exists(tbl, meta)
 
     metadata = json.load(open(meta))

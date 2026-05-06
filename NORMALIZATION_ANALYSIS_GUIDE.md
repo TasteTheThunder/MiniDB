@@ -1,6 +1,6 @@
-# MiniDB Schema Normalization Guide
+# NirvahaDB Schema Normalization Guide
 
-This guide explains how MiniDB analyzes schema design quality using functional dependencies (FDs), keys, and normal forms.
+This guide explains how NirvahaDB analyzes schema design quality using functional dependencies (FDs), keys, and normal forms.
 
 ## 1. Command
 
@@ -23,7 +23,7 @@ An FD means one attribute set determines another.
 - Example: `roll -> name, dept`
 - Meaning: if two rows have the same `roll`, they must have the same `name` and `dept`.
 
-MiniDB stores table-specific FDs in metadata for reuse.
+NirvahaDB stores table-specific FDs in metadata for reuse.
 
 ## 3. Interactive FD Input Flow
 
@@ -46,7 +46,7 @@ Rules:
 
 ## 4. Step-by-Step Analysis Pipeline
 
-MiniDB follows this analysis pipeline internally and presents a compact educational dashboard report:
+NirvahaDB follows this analysis pipeline internally and presents a compact educational dashboard report:
 
 1. Load Schema
 2. Load / Request Functional Dependencies
@@ -67,7 +67,7 @@ Note:
 
 Closure of attribute set `X` (written as `X+`) is all attributes derivable from `X` using FDs.
 
-MiniDB computes closure by iterative FD expansion:
+NirvahaDB computes closure by iterative FD expansion:
 - Start with `X+ = X`
 - Repeatedly apply FDs where LHS is in closure
 - Add RHS attributes until no new attributes appear
@@ -78,7 +78,7 @@ Why it matters:
 
 ## 6. Candidate Key Detection
 
-MiniDB determines candidate keys as follows:
+NirvahaDB determines candidate keys as follows:
 
 1. If metadata primary key exists, it is used directly as the candidate key base.
 2. Otherwise, MiniDB searches minimal attribute combinations whose closure covers all table attributes.
@@ -98,7 +98,7 @@ These sets are required for 2NF and 3NF checks.
 
 ### 8.1 1NF
 
-MiniDB assumes 1NF is satisfied unless malformed schema metadata is found.
+NirvahaDB assumes 1NF is satisfied unless malformed schema metadata is found.
 
 ### 8.2 2NF
 
@@ -113,11 +113,13 @@ FD `X -> A` violates 3NF when:
 - `X` is not a superkey, and
 - `A` is non-prime
 
-MiniDB reports these as transitive dependency violations.
+NirvahaDB reports these as transitive dependency violations.
+Note:
+- A relation must satisfy 2NF before it can satisfy 3NF.
 
 ## 9. Dependency to Anomaly Mapping
 
-MiniDB maps detected violations to practical data anomalies.
+NirvahaDB maps detected violations to practical data anomalies.
 
 ### Partial Dependency
 
@@ -140,7 +142,7 @@ Reason:
 
 ## 10. Suggested Decomposition
 
-MiniDB suggests decomposition patterns based on violations:
+NirvahaDB suggests decomposition patterns based on violations:
 
 - Partial dependency: separate attributes on RHS into a relation with the determinant (LHS)
 - Transitive dependency: create a new relation for transitive determinant and dependents

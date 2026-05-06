@@ -6,11 +6,13 @@ from visualizer import print_trace, print_result
 from utils import table_paths, check_table_exists
 
 
-def describe_table(command):
-    """Display table structure and metadata"""
+def describe_table(command, database=None):
+    """Display table structure and metadata.
+    If database is specified, describes table in that database.
+    """
     
     table = command["table"]
-    tbl, meta = table_paths(table)
+    tbl, meta = table_paths(table, database)
     check_table_exists(tbl, meta)
     
     metadata = json.load(open(meta))
