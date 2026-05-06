@@ -8,6 +8,7 @@ from utils import (
     check_table_exists,
     compare
 )
+from index.index_manager import get_index_manager
 
 
 def delete_row(table, condition, database=None):
@@ -40,6 +41,32 @@ def delete_row(table, condition, database=None):
             new.append(row)
 
     open(tbl, "w").writelines(new)
+
+    # =====================================
+    # INDEX MAINTENANCE (rebuild if needed)
+    # =====================================
+
+    if deleted > 0:
+        manager = get_index_manager(database)
+        indices = manager.list_indices(table)
+        if indices:
+            table_data = [row.strip().split(",") for row in new]
+            rebuilt = []
+            for col_name, index_type in indices:
+                if col_name not in columns:
+                    continue
+                col_idx = columns.index(col_name)
+                if index_type == "hash":
+                    manager.create_hash_index(table, col_name, table_data, col_idx)
+                    rebuilt.append(f"{col_name}.hash")
+                elif index_type == "sorted":
+                    manager.create_sorted_index(table, col_name, table_data, col_idx)
+                    rebuilt.append(f"{col_name}.sorted")
+
+            if rebuilt:
+                print_trace("INDEX", [
+                    "Rebuilt indices: " + ", ".join(rebuilt)
+                ])
 
     print_trace("STORAGE ENGINE", [
         f"Deleting rows where {cond_col} {op} {val}",

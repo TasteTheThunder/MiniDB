@@ -10,6 +10,7 @@ from utils import (
     compare,
     validate_value
 )
+from index.index_manager import get_index_manager
 
 
 def update_row(table, set_data, condition, database=None):
@@ -57,6 +58,32 @@ def update_row(table, set_data, condition, database=None):
         new.append(",".join(vals) + "\n")
 
     open(tbl, "w").writelines(new)
+
+    # =====================================
+    # INDEX MAINTENANCE (rebuild if needed)
+    # =====================================
+
+    if updated > 0:
+        manager = get_index_manager(database)
+        indices = manager.list_indices(table)
+        if indices:
+            table_data = [row.strip().split(",") for row in new]
+            rebuilt = []
+            for col_name, index_type in indices:
+                if col_name not in columns:
+                    continue
+                col_idx = columns.index(col_name)
+                if index_type == "hash":
+                    manager.create_hash_index(table, col_name, table_data, col_idx)
+                    rebuilt.append(f"{col_name}.hash")
+                elif index_type == "sorted":
+                    manager.create_sorted_index(table, col_name, table_data, col_idx)
+                    rebuilt.append(f"{col_name}.sorted")
+
+            if rebuilt:
+                print_trace("INDEX", [
+                    "Rebuilt indices: " + ", ".join(rebuilt)
+                ])
 
     print_trace("STORAGE ENGINE", [
         f"Updating rows where {cond_col} {op} {cond_val}",

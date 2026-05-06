@@ -9,6 +9,7 @@ from utils import (
     remove_quotes,
     validate_value
 )
+from index.index_manager import get_index_manager
 
 
 def insert_row(table, values, insert_columns=None, database=None):
@@ -76,6 +77,11 @@ def insert_row(table, values, insert_columns=None, database=None):
     # PRIMARY KEY CHECK
     # =====================================
 
+    existing_rows = []
+    if os.path.exists(tbl):
+        with open(tbl) as f:
+            existing_rows = f.readlines()
+
     if pk:
         # Support both single and composite primary keys
         if isinstance(pk, str):
@@ -92,28 +98,60 @@ def insert_row(table, values, insert_columns=None, database=None):
                 )
         
         # Duplicate check - compare composite key
-        with open(tbl) as f:
-            for row in f:
-                existing = row.strip().split(",")
-                
-                # Check if all PK columns match (composite key duplicate check)
-                if all(existing[i] == final_values[i] for i in pk_indices):
-                    if len(pk) == 1:
-                        raise Exception(
-                            f"Primary Key violation: {pk[0]} = {final_values[pk_indices[0]]}"
-                        )
-                    else:
-                        pk_values = ", ".join([f"{pk[i]}={final_values[pk_indices[i]]}" for i in range(len(pk))])
-                        raise Exception(
-                            f"Composite Primary Key violation: ({pk_values})"
-                        )
+        for row in existing_rows:
+            existing = row.strip().split(",")
+            
+            # Check if all PK columns match (composite key duplicate check)
+            if all(existing[i] == final_values[i] for i in pk_indices):
+                if len(pk) == 1:
+                    raise Exception(
+                        f"Primary Key violation: {pk[0]} = {final_values[pk_indices[0]]}"
+                    )
+                else:
+                    pk_values = ", ".join([f"{pk[i]}={final_values[pk_indices[i]]}" for i in range(len(pk))])
+                    raise Exception(
+                        f"Composite Primary Key violation: ({pk_values})"
+                    )
 
     # =====================================
     # WRITE FILE
     # =====================================
 
+    row_num = len(existing_rows)
     line = ",".join(final_values)
     open(tbl, "a").write(line + "\n")
+
+    # =====================================
+    # INDEX MAINTENANCE (if any index exists)
+    # =====================================
+
+    manager = get_index_manager(database)
+    indices = manager.list_indices(table)
+    if indices:
+        updated_indices = []
+        for col_name, index_type in indices:
+            if col_name not in columns:
+                continue
+            col_idx = columns.index(col_name)
+            value = final_values[col_idx]
+
+            if index_type == "hash":
+                index = manager.get_hash_index(table, col_name)
+                if index:
+                    index.insert(value, row_num)
+                    index.save()
+                    updated_indices.append(f"{col_name}.hash")
+            elif index_type == "sorted":
+                index = manager.get_sorted_index(table, col_name)
+                if index:
+                    index.insert(value, row_num)
+                    index.save()
+                    updated_indices.append(f"{col_name}.sorted")
+
+        if updated_indices:
+            print_trace("INDEX", [
+                "Updated indices: " + ", ".join(updated_indices)
+            ])
 
     print_trace("STORAGE ENGINE", [
         f"Open File : {tbl}",
