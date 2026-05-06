@@ -11,6 +11,7 @@ metadata/
 index/*.hash
 index/*.sorted
 index/query_stats.json
+index/*/
 
 # Optional local environment files
 .venv/
