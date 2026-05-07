@@ -104,6 +104,9 @@ def compare(cell, op, val):
         if op == "<=":
             return cell_num <= val_num
 
+        if op == "!=":
+            return cell_num != val_num
+
     except:
 
         if op == "=":
@@ -114,6 +117,9 @@ def compare(cell, op, val):
 
         if op == "<=":
             return cell <= val
+
+        if op == "!=":
+            return cell != val
 
     return False
 

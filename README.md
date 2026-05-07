@@ -258,6 +258,12 @@ SELECT MIN(age), MAX(age) FROM students;
 -- GROUP BY with aggregation
 SELECT course_id, AVG(grade) FROM enrollments GROUP BY course_id;
 
+-- GROUP BY with HAVING
+SELECT department, AVG(salary)
+FROM employees
+GROUP BY department
+HAVING AVG(salary) > 60000;
+
 -- Combined features
 SELECT course_id, COUNT(*) FROM enrollments 
     WHERE grade > 3.0 
@@ -408,6 +414,7 @@ NirvahaDB includes an adaptive hybrid indexing system that optimizes repeated qu
 - Sorted index for range queries (binary search, `O(log n)` lookup)
 - Automatic index creation after 3 repeated query patterns on the same column
 - Transparent behavior: no query syntax changes required
+- Uses a row-offset file to seek directly to matching rows (so Rows Scanned equals Index Hits when an index is used)
 
 Example:
 

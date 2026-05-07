@@ -2,7 +2,7 @@
 
 from .anomaly_detector import detect_anomalies
 from .closure import compute_attribute_closure
-from .fd_manager import get_fds, save_fds
+from .fd_manager import get_fds, save_fds, delete_fds
 from .key_finder import find_candidate_keys
 from .normal_form_checker import check_1nf, check_2nf, check_3nf
 from .normalization_utils import (
@@ -429,16 +429,54 @@ def analyze_schema(table_name, interactive=True, database=None):
             "No stored functional dependencies found.",
             "Requesting FD input from user.",
         ])
-        fds = _request_fd_input(table_name)
-        if fds:
+        while True:
+            fds = _request_fd_input(table_name)
+            if not fds:
+                break
+            try:
+                _validate_fds_against_schema(fds, attributes)
+            except Exception as exc:
+                print(f"❌ Error: {exc}")
+                delete_fds(table_name, database)
+                continue
+
             save_fds(table_name, fds, database)
             step2_lines.append("FDs saved for future analysis.")
+            break
     elif fds is None:
         fds = []
         step2_lines.append("No stored functional dependencies found.")
         step2_lines.append("Interactive mode disabled, proceeding with empty FD set.")
     else:
-        step2_lines.append("Loaded functional dependencies from metadata.")
+        try:
+            _validate_fds_against_schema(fds, attributes)
+        except Exception as exc:
+            if interactive:
+                print(f"❌ Error: {exc}")
+                delete_fds(table_name, database)
+                fds = []
+                step2_lines.extend([
+                    "Stored functional dependencies were invalid.",
+                    "Requesting FD input from user.",
+                ])
+                while True:
+                    fds = _request_fd_input(table_name)
+                    if not fds:
+                        break
+                    try:
+                        _validate_fds_against_schema(fds, attributes)
+                    except Exception as exc2:
+                        print(f"❌ Error: {exc2}")
+                        delete_fds(table_name, database)
+                        continue
+
+                    save_fds(table_name, fds, database)
+                    step2_lines.append("FDs saved for future analysis.")
+                    break
+            else:
+                raise
+        else:
+            step2_lines.append("Loaded functional dependencies from metadata.")
 
     _visual_step(2, "Load / Request Functional Dependencies", step2_lines + [
         f"Functional Dependencies Loaded: {len(fds)}",

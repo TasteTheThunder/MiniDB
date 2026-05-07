@@ -7,6 +7,9 @@ def parse_drop(tokens):
     Parse DROP TABLE statement
     Syntax: DROP TABLE table_name
     """
+    if len(tokens) != 3 or tokens[0] != "DROP" or tokens[1] != "TABLE":
+        raise Exception("Invalid DROP syntax. Use: DROP TABLE table_name;")
+
     table = tokens[2]
 
     command = {

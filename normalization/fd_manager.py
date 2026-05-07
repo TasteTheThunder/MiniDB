@@ -43,3 +43,10 @@ def save_fds(table_name, fds, database=None):
 
     with open(path, "w") as f:
         json.dump(payload, f, indent=2)
+
+
+def delete_fds(table_name, database=None):
+    """Remove stored functional dependencies for a table."""
+    path = _fd_file_path(table_name, database)
+    if os.path.exists(path):
+        os.remove(path)

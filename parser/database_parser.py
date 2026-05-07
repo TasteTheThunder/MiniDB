@@ -34,11 +34,11 @@ def parse_create_database(tokens):
     """
     Parse: CREATE DATABASE db_name;
     """
-    if len(tokens) < 3:
-        raise Exception("Invalid CREATE DATABASE syntax")
+    if len(tokens) != 3:
+        raise Exception("Invalid CREATE DATABASE syntax. Use: CREATE DATABASE name;")
     
     if tokens[1].upper() != "DATABASE":
-        raise Exception("Expected 'DATABASE' after CREATE")
+        raise Exception("Invalid CREATE DATABASE syntax. Use: CREATE DATABASE name;")
     
     db_name = tokens[2].replace(";", "").strip()
     
@@ -55,11 +55,11 @@ def parse_drop_database(tokens):
     """
     Parse: DROP DATABASE db_name;
     """
-    if len(tokens) < 3:
-        raise Exception("Invalid DROP DATABASE syntax")
+    if len(tokens) != 3:
+        raise Exception("Invalid DROP DATABASE syntax. Use: DROP DATABASE name;")
     
     if tokens[1].upper() != "DATABASE":
-        raise Exception("Expected 'DATABASE' after DROP")
+        raise Exception("Invalid DROP DATABASE syntax. Use: DROP DATABASE name;")
     
     db_name = tokens[2].replace(";", "").strip()
     
@@ -76,11 +76,11 @@ def parse_show_databases(tokens):
     """
     Parse: SHOW DATABASES;
     """
-    if len(tokens) < 2:
-        raise Exception("Invalid SHOW DATABASES syntax")
+    if len(tokens) != 2:
+        raise Exception("Invalid SHOW DATABASES syntax. Use: SHOW DATABASES;")
     
     if tokens[1].upper() != "DATABASES":
-        raise Exception("Expected 'DATABASES' after SHOW")
+        raise Exception("Invalid SHOW DATABASES syntax. Use: SHOW DATABASES;")
     
     return {
         "type": "SHOW_DATABASES"
@@ -91,8 +91,8 @@ def parse_use_database(tokens):
     """
     Parse: USE db_name;
     """
-    if len(tokens) < 2:
-        raise Exception("Invalid USE syntax")
+    if len(tokens) != 2:
+        raise Exception("Invalid USE syntax. Use: USE database_name;")
     
     db_name = tokens[1].replace(";", "").strip()
     

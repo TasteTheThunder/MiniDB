@@ -103,6 +103,7 @@ def execute_query(command, database=None):
             command.get("aggregate"),
             command.get("agg_column"),
             command.get("group_by"),
+            command.get("having"),
             command.get("order_by"),
             command.get("limit"),
             database=database

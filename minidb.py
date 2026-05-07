@@ -85,7 +85,7 @@ def main():
                 # Check if we should continue reading
                 if (
                     line.endswith(";")
-                    or line.upper() in ["EXIT", "HELP"]
+                    or line.upper() in ["EXIT", "HELP", "CLEAR"]
                     or line.upper().startswith("SET MODE")
                     or line.upper().startswith("SHOW MODE")
                 ):
@@ -108,12 +108,18 @@ def main():
                 continue
 
             # Handle clear
-            if query.upper() == "CLEAR;":
+            if query.upper().replace(" ", "") == "CLEAR;":
                 os.system("cls" if os.name == "nt" else "clear")
+                continue
+            if query.upper().replace(" ", "") == "CLEAR":
+                print("\n❌ Error: Missing semicolon. Use: CLEAR;\n")
                 continue
 
             # Handle SET MODE
             if query.upper().startswith("SET MODE"):
+                if not query.endswith(";"):
+                    print("\n❌ Error: Missing semicolon. Use: SET MODE <mode>;\n")
+                    continue
                 mode = query.split()[-1].replace(";", "")
                 config.set_mode(mode)
                 print(f"✅ Mode changed to {mode.upper()}\n")
@@ -121,7 +127,14 @@ def main():
 
             # Handle SHOW MODE
             if query.upper().startswith("SHOW MODE"):
+                if not query.endswith(";"):
+                    print("\n❌ Error: Missing semicolon. Use: SHOW MODE;\n")
+                    continue
                 print(f"Current Mode: {config.get_mode()}\n")
+                continue
+
+            if not query.endswith(";"):
+                print("\n❌ Error: Missing semicolon. End the command with ';'\n")
                 continue
 
             # Parse query

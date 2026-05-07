@@ -27,6 +27,11 @@ def update_row(table, set_data, condition, database=None):
     set_col, set_val = set_data
     cond_col, op, cond_val = condition
 
+    if set_col not in columns:
+        raise Exception(f"No column with name {set_col} found in {table}")
+    if cond_col not in columns:
+        raise Exception(f"No column with name {cond_col} found in {table}")
+
     dtype = None
 
     for c in metadata["columns"]:
@@ -56,6 +61,11 @@ def update_row(table, set_data, condition, database=None):
             updated += 1
 
         new.append(",".join(vals) + "\n")
+
+    if updated == 0:
+        raise Exception(
+            f"No matching row found for {cond_col} {op} {cond_val} in {table}"
+        )
 
     open(tbl, "w").writelines(new)
 

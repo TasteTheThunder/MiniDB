@@ -238,15 +238,15 @@ MiniDB shows two different costs when an index is used:
 - **Index Hits**: number of row ids returned by the index.
 - **Rows Scanned**: number of table rows read from the data file to fetch those ids.
 
-Because rows are stored in a flat file, the engine reads lines until it reaches the
-highest row id in the result set. This is why Rows Scanned can be larger than Index Hits.
+MiniDB builds a row-offset file for each table and uses `seek()` to jump directly
+to matching rows. This makes Rows Scanned equal to Index Hits when an index is used.
 
 **Example (students table):**
 
 ```
 Query: SELECT * FROM students WHERE age > 21
 Index Hits : 2   (row ids [1, 3])
-Rows Scanned : 4 (reads rows 0..3 to fetch those ids)
+Rows Scanned : 2 (reads only the target rows)
 ```
 
 ### Without Index (Full Table Scan)
@@ -460,6 +460,20 @@ Example (sorted by value):
 19,1
 20,0
 21,2
+```
+
+### Row Offsets File (table.offsets)
+```
+byte_offset
+byte_offset
+...
+
+Example:
+0
+18
+35
+53
+70
 ```
 
 ---

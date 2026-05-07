@@ -71,6 +71,7 @@ def drop_database(db_name):
     # Remove database directories
     db_data_dir = os.path.join(DATA_DIR, db_name)
     db_meta_dir = os.path.join(META_DIR, db_name)
+    db_index_dir = os.path.join("index", db_name)
     
     # Remove all files in directories
     import shutil
@@ -80,13 +81,17 @@ def drop_database(db_name):
     
     if os.path.exists(db_meta_dir):
         shutil.rmtree(db_meta_dir)
+
+    if os.path.exists(db_index_dir):
+        shutil.rmtree(db_index_dir)
     
     # Remove from database list
     databases.remove(db_name)
     save_databases(databases)
     
     print_trace("DATABASE ENGINE", [
-        f"Dropped database: {db_name}"
+        f"Dropped database: {db_name}",
+        f"Removed index artifacts: {db_index_dir}"
     ])
 
 

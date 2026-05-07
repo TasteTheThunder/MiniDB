@@ -23,6 +23,8 @@ def delete_row(table, condition, database=None):
     columns = [c[0] for c in metadata["columns"]]
 
     cond_col, op, val = condition
+    if cond_col not in columns:
+        raise Exception(f"No column with name {cond_col} found in {table}")
     ci = columns.index(cond_col)
 
     new = []
@@ -39,6 +41,11 @@ def delete_row(table, condition, database=None):
             deleted += 1
         else:
             new.append(row)
+
+    if deleted == 0:
+        raise Exception(
+            f"No matching row found for {cond_col} {op} {val} in {table}"
+        )
 
     open(tbl, "w").writelines(new)
 

@@ -22,8 +22,8 @@ def parse_alter(tokens):
     Supports: ADD COLUMN, DROP COLUMN, MODIFY COLUMN, RENAME COLUMN, RENAME TABLE,
               ADD PRIMARY KEY, DROP PRIMARY KEY
     """
-    if tokens[1] != "TABLE":
-        raise Exception("Invalid ALTER syntax")
+    if len(tokens) < 4 or tokens[0] != "ALTER" or tokens[1] != "TABLE":
+        raise Exception("Invalid ALTER syntax. Use: ALTER TABLE ...;")
 
     table = tokens[2]
 
@@ -34,6 +34,8 @@ def parse_alter(tokens):
     if operation == "RENAME":
         if tokens[4] == "TO":
             # ALTER TABLE old_name RENAME TO new_name
+            if len(tokens) != 6:
+                raise Exception("Invalid RENAME TABLE syntax. Use: ALTER TABLE name RENAME TO new_name;")
             new_table_name = tokens[5]
             command = {
                 "type": "ALTER",
@@ -43,8 +45,8 @@ def parse_alter(tokens):
             }
         elif tokens[4] == "COLUMN":
             # ALTER TABLE table RENAME COLUMN old_col TO new_col
-            if tokens[6] != "TO":
-                raise Exception("Invalid RENAME COLUMN syntax")
+            if len(tokens) != 8 or tokens[6] != "TO":
+                raise Exception("Invalid RENAME COLUMN syntax. Use: ALTER TABLE name RENAME COLUMN old TO new;")
             old_column = tokens[5]
             new_column = tokens[7]
             command = {
@@ -55,7 +57,7 @@ def parse_alter(tokens):
                 "new_column": new_column
             }
         else:
-            raise Exception("Invalid RENAME syntax")
+            raise Exception("Invalid RENAME syntax. Use: ALTER TABLE name RENAME TO new_name;")
 
     # ============ ALTER TABLE ... ADD ============
     elif operation == "ADD":
@@ -79,6 +81,9 @@ def parse_alter(tokens):
                     i += 1
                 else:
                     break
+
+            if not columns_to_add or i != len(tokens):
+                raise Exception("Invalid ADD COLUMN syntax. Use: ALTER TABLE name ADD COLUMN col type;")
             
             command = {
                 "type": "ALTER",
@@ -105,6 +110,9 @@ def parse_alter(tokens):
             
             paren_start = tokens.index("(", 4)
             paren_end = tokens.index(")", paren_start)
+
+            if paren_end != len(tokens) - 1:
+                raise Exception("Invalid ADD PRIMARY KEY syntax. Use: ALTER TABLE name ADD PRIMARY KEY (...);")
             
             # Extract column names
             pk_columns = [
@@ -121,13 +129,15 @@ def parse_alter(tokens):
             }
         
         else:
-            raise Exception("Invalid ADD syntax - use ADD COLUMN or ADD PRIMARY KEY")
+            raise Exception("Invalid ADD syntax. Use: ALTER TABLE name ADD COLUMN ... or ADD PRIMARY KEY (...);")
 
     # ============ ALTER TABLE ... DROP ============
     elif operation == "DROP":
         # Check what we're dropping
         if tokens[4] == "COLUMN":
             # DROP COLUMN
+            if len(tokens) != 6:
+                raise Exception("Invalid DROP COLUMN syntax. Use: ALTER TABLE name DROP COLUMN col;")
             column_name = tokens[5]
             command = {
                 "type": "ALTER",
@@ -140,6 +150,11 @@ def parse_alter(tokens):
             # DROP PRIMARY KEY or DROP CONSTRAINT PRIMARY KEY
             # ALTER TABLE students DROP PRIMARY KEY
             # ALTER TABLE students DROP CONSTRAINT PRIMARY KEY
+            if tokens[4] == "PRIMARY" and len(tokens) != 6:
+                raise Exception("Invalid DROP PRIMARY KEY syntax. Use: ALTER TABLE name DROP PRIMARY KEY;")
+            if tokens[4] == "CONSTRAINT":
+                if len(tokens) != 7 or tokens[6] != "KEY":
+                    raise Exception("Invalid DROP PRIMARY KEY syntax. Use: ALTER TABLE name DROP PRIMARY KEY;")
             command = {
                 "type": "ALTER",
                 "table": table,
@@ -147,7 +162,7 @@ def parse_alter(tokens):
             }
         
         else:
-            raise Exception("Invalid DROP syntax - use DROP COLUMN or DROP PRIMARY KEY")
+            raise Exception("Invalid DROP syntax. Use: ALTER TABLE name DROP COLUMN col or DROP PRIMARY KEY;")
 
     # ============ ALTER TABLE ... MODIFY COLUMN col_name new_datatype ============
     elif operation == "MODIFY":
@@ -159,7 +174,10 @@ def parse_alter(tokens):
             column_name = tokens[4]
             new_datatype = tokens[5]
             i = 6
-        _skip_size(tokens, i)
+        i = _skip_size(tokens, i)
+
+        if i != len(tokens):
+            raise Exception("Invalid MODIFY syntax. Use: ALTER TABLE name MODIFY COLUMN col type;")
         command = {
             "type": "ALTER",
             "table": table,

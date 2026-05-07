@@ -79,12 +79,24 @@ def parse_create(tokens):
     Syntax: CREATE TABLE table_name (col1 type1, col2 type2, ...)
             Supports inline PRIMARY KEY and table-level PRIMARY KEY.
     """
+    if len(tokens) < 4:
+        raise Exception("Invalid CREATE TABLE syntax. Use: CREATE TABLE name (...);")
+
+    if tokens[0] != "CREATE" or tokens[1] != "TABLE":
+        raise Exception("Invalid CREATE TABLE syntax. Use: CREATE TABLE name (...);")
+
+    if tokens[3] != "(":
+        raise Exception("Invalid CREATE TABLE syntax. Use: CREATE TABLE name (...);")
+
     table = tokens[2]
 
     start = tokens.index("(")
     end = _find_matching_paren(tokens, start)
     if end is None:
         raise Exception("Invalid CREATE TABLE syntax - missing closing parenthesis")
+
+    if end != len(tokens) - 1:
+        raise Exception("Invalid CREATE TABLE syntax. Use: CREATE TABLE name (...);")
 
     columns = []
     primary_key = None

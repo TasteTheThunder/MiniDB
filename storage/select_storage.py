@@ -203,6 +203,7 @@ def select_rows(
         aggregate=None,
         agg_column=None,
         group_by=None,
+    having=None,
         order_by=None,
         limit=None,
         database=None
@@ -217,6 +218,32 @@ def select_rows(
 
     metadata = json.load(open(meta))
     columns = [c[0] for c in metadata["columns"]]
+
+    if selected_columns and selected_columns != ["*"]:
+        for col in selected_columns:
+            if col not in columns:
+                raise Exception(f"No column with name {col} found in {table}")
+
+    if group_by and group_by not in columns:
+        raise Exception(f"No column with name {group_by} found in {table}")
+
+    if order_by:
+        sort_col, _sort_order = order_by
+        if sort_col not in columns and "(" not in sort_col:
+            raise Exception(f"No column with name {sort_col} found in {table}")
+
+    if aggregate and aggregate != "COUNT":
+        if not agg_column or agg_column not in columns:
+            raise Exception(f"No column with name {agg_column} found in {table}")
+
+    if having:
+        if not (aggregate and group_by):
+            raise Exception("HAVING requires GROUP BY with an aggregate")
+        expected_col = agg_column if agg_column else "*"
+        if having["aggregate"] != aggregate:
+            raise Exception("HAVING aggregate must match SELECT aggregate")
+        if having["agg_column"] != expected_col:
+            raise Exception("HAVING aggregate column must match SELECT aggregate column")
 
     # Use index-aware filtering
     filtered, rows_scanned, used_index, index_hits = _get_filtered_rows_with_index(
@@ -309,6 +336,18 @@ def select_rows(
                 
                 results.append((grp_val, result))
             
+            # Apply HAVING filter
+            if having:
+                op = having["operator"]
+                val = having["value"]
+                filtered_results = []
+                for grp_val, result in results:
+                    if result == "NULL":
+                        continue
+                    if compare(str(result), op, val):
+                        filtered_results.append((grp_val, result))
+                results = filtered_results
+
             # Handle ORDER BY
             if order_by:
                 order_column, order_direction = order_by

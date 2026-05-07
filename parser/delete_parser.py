@@ -7,20 +7,22 @@ def parse_delete(tokens):
     Parse DELETE statement
     Syntax: DELETE FROM table WHERE condition
     """
-    # DELETE FROM table WHERE condition
-    if "FROM" not in tokens or "WHERE" not in tokens:
-        raise Exception("Invalid DELETE syntax")
+    # Expected tokens: DELETE FROM <table> WHERE <column> <op> <value>
+    if len(tokens) != 7:
+        raise Exception("Invalid DELETE syntax. Use: DELETE FROM table WHERE condition;")
 
-    from_index = tokens.index("FROM")
-    table = tokens[from_index + 1]
+    if tokens[0] != "DELETE" or tokens[1] != "FROM" or tokens[3] != "WHERE":
+        raise Exception("Invalid DELETE syntax.")
 
-    where_index = tokens.index("WHERE")
-    
-    condition = (
-        tokens[where_index + 1],   # column
-        tokens[where_index + 2],   # operator
-        tokens[where_index + 3]    # value
-    )
+    table = tokens[2]
+    column = tokens[4]
+    operator = tokens[5]
+    value = tokens[6]
+
+    if operator not in ["=", ">", "<", ">=", "<=", "!="]:
+        raise Exception("Invalid DELETE syntax.")
+
+    condition = (column, operator, value)
 
     command = {
         "type": "DELETE",
