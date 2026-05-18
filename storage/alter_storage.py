@@ -33,6 +33,7 @@ def alter_table(command, database=None):
     metadata = json.load(open(meta))
     columns = metadata["columns"]
     primary_key = metadata.get("primary_key")
+    foreign_keys = metadata.get("foreign_keys", []) or []
     
     # ===================================
     # ADD COLUMN
@@ -98,6 +99,11 @@ def alter_table(command, database=None):
             pk_list = primary_key if isinstance(primary_key, list) else [primary_key]
             if column_name in pk_list:
                 raise Exception(f"Cannot drop primary key column '{column_name}'")
+
+        if any(fk.get("column") == column_name for fk in foreign_keys):
+            raise Exception(
+                f"Cannot drop foreign key column '{column_name}'"
+            )
         
         col_index = column_names.index(column_name)
         columns.pop(col_index)
@@ -179,6 +185,14 @@ def alter_table(command, database=None):
                     new_column if pk_col == old_column else pk_col 
                     for pk_col in primary_key
                 ]
+
+        if foreign_keys:
+            for fk in foreign_keys:
+                if fk.get("column") == old_column:
+                    fk["column"] = new_column
+                if fk.get("references_column") == old_column:
+                    fk["references_column"] = new_column
+            metadata["foreign_keys"] = foreign_keys
         
         with open(meta, "w") as f:
             json.dump(metadata, f)

@@ -113,14 +113,31 @@ def _display_parsed_command(command):
     if 'values' in command:
         lines.append(f"Values         : {command['values']}")
     
+    if 'join' in command and command['join']:
+        join = command['join']
+        lines.append(
+            f"Join           : {join['type']} JOIN {join['table']} ON {join['left_column']} = {join['right_column']}"
+        )
+
     if 'condition' in command and command['condition']:
         cond = command['condition']
         if isinstance(cond, tuple):
-            # Tuple format: (column, operator, value)
             lines.append(f"Condition      : {cond[0]} {cond[1]} {cond[2]}")
         elif isinstance(cond, dict):
-            # Dict format: {'column': ..., 'operator': ..., 'value': ...}
-            lines.append(f"Condition      : {cond['column']} {cond['operator']} {cond['value']}")
+            cond_type = cond.get("type")
+            if cond_type == "simple":
+                lines.append(
+                    f"Condition      : {cond['column']} {cond['operator']} {cond['value']}"
+                )
+            elif cond_type == "in":
+                lines.append(
+                    f"Condition      : {cond['column']} IN (subquery)"
+                )
+            elif cond_type == "exists":
+                prefix = "NOT " if cond.get("negated") else ""
+                lines.append(f"Condition      : {prefix}EXISTS (subquery)")
+            else:
+                lines.append(f"Condition      : {cond}")
         else:
             lines.append(f"Condition      : {cond}")
     

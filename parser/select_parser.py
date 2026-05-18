@@ -2,6 +2,18 @@
 Parser for SELECT command
 """
 
+
+def _find_matching_paren(tokens, start_index):
+    depth = 0
+    for i in range(start_index, len(tokens)):
+        if tokens[i] == "(":
+            depth += 1
+        elif tokens[i] == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+    return None
+
 def parse_select(tokens):
     """
     Parse SELECT statement
@@ -28,6 +40,7 @@ def parse_select(tokens):
     table = tokens[from_index + 1]
 
     condition = None
+    join = None
     group_by = None
     having = None
     order_by = None
@@ -54,21 +67,100 @@ def parse_select(tokens):
     i = from_index + 2
     stage = 0
 
+    # ---------------- JOIN (optional) ----------------
+    if i < len(tokens) and tokens[i] in ["INNER", "LEFT", "RIGHT", "JOIN"]:
+        if tokens[i] == "JOIN":
+            join_type = "INNER"
+            i += 1
+        else:
+            join_type = tokens[i]
+            i += 1
+            if i >= len(tokens) or tokens[i] != "JOIN":
+                raise Exception("Invalid SELECT syntax. Use: ... <JOIN> ... ON ...;")
+            i += 1
+
+        if i >= len(tokens):
+            raise Exception("Invalid SELECT syntax. Use: ... <JOIN> ... ON ...;")
+
+        join_table = tokens[i]
+        i += 1
+
+        if i >= len(tokens) or tokens[i] != "ON":
+            raise Exception("Invalid SELECT syntax. Use: ... JOIN ... ON col = col;")
+
+        if i + 3 >= len(tokens) or tokens[i + 2] != "=":
+            raise Exception("Invalid SELECT syntax. JOIN ON requires '='.")
+
+        left_column = tokens[i + 1]
+        right_column = tokens[i + 3]
+        i += 4
+
+        join = {
+            "type": join_type,
+            "table": join_table,
+            "left_column": left_column,
+            "right_column": right_column
+        }
+
     while i < len(tokens):
         token = tokens[i]
 
         if token == "WHERE":
             if stage > 0:
                 raise Exception("Invalid SELECT syntax. Use: SELECT ... FROM table;")
+            if i + 1 >= len(tokens):
+                raise Exception("Invalid SELECT syntax. Use: SELECT ... FROM table;")
+
+            # WHERE EXISTS (subquery)
+            if tokens[i + 1] == "EXISTS":
+                subquery, next_i = _parse_subquery(tokens, i + 2)
+                condition = {
+                    "type": "exists",
+                    "subquery": subquery,
+                    "negated": False
+                }
+                i = next_i
+                stage = 1
+                continue
+
+            # WHERE NOT EXISTS (subquery)
+            if tokens[i + 1] == "NOT":
+                if i + 2 >= len(tokens) or tokens[i + 2] != "EXISTS":
+                    raise Exception("Invalid SELECT syntax. Use: WHERE NOT EXISTS (...);")
+                subquery, next_i = _parse_subquery(tokens, i + 3)
+                condition = {
+                    "type": "exists",
+                    "subquery": subquery,
+                    "negated": True
+                }
+                i = next_i
+                stage = 1
+                continue
+
+            # WHERE <column> IN (subquery)
+            if i + 3 < len(tokens) and tokens[i + 2] == "IN":
+                column = tokens[i + 1]
+                subquery, next_i = _parse_subquery(tokens, i + 3)
+                condition = {
+                    "type": "in",
+                    "column": column,
+                    "subquery": subquery
+                }
+                i = next_i
+                stage = 1
+                continue
+
+            # WHERE <column> <op> <value>
             if i + 3 >= len(tokens):
                 raise Exception("Invalid SELECT syntax. Use: SELECT ... FROM table;")
             if tokens[i + 2] not in ["=", ">", "<", ">=", "<=", "!="]:
                 raise Exception("Invalid SELECT syntax. Use: SELECT ... FROM table;")
-            condition = (
-                tokens[i + 1],
-                tokens[i + 2],
-                tokens[i + 3]
-            )
+            condition = {
+                "type": "simple",
+                "column": tokens[i + 1],
+                "operator": tokens[i + 2],
+                "value": tokens[i + 3]
+            }
             i += 4
             stage = 1
             continue
@@ -179,6 +271,7 @@ def parse_select(tokens):
     command = {
         "type": "SELECT",
         "table": table,
+        "join": join,
         "columns": select_columns,
         "aggregate": aggregate,
         "agg_column": agg_column,
@@ -190,3 +283,19 @@ def parse_select(tokens):
     }
     
     return command
+
+
+def _parse_subquery(tokens, start_index):
+    if start_index >= len(tokens) or tokens[start_index] != "(":
+        raise Exception("Invalid subquery syntax. Use: (...)")
+
+    end = _find_matching_paren(tokens, start_index)
+    if end is None:
+        raise Exception("Invalid subquery syntax - missing closing parenthesis")
+
+    sub_tokens = tokens[start_index + 1:end]
+    if not sub_tokens or sub_tokens[0] != "SELECT":
+        raise Exception("Invalid subquery syntax. Only SELECT subqueries are supported")
+
+    subquery = parse_select(sub_tokens)
+    return subquery, end + 1

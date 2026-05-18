@@ -18,6 +18,7 @@ def describe_table(command, database=None):
     metadata = json.load(open(meta))
     columns = metadata["columns"]
     primary_key = metadata.get("primary_key")
+    foreign_keys = metadata.get("foreign_keys", []) or []
     
     # Count rows
     rows = open(tbl).readlines()
@@ -60,6 +61,15 @@ def describe_table(command, database=None):
         print(f"Primary Key: {pk_display}")
     else:
         print("Primary Key: None")
+
+    if foreign_keys:
+        print("Foreign Keys:")
+        for fk in foreign_keys:
+            print(
+                f"  - {fk['column']} REFERENCES {fk['references_table']}({fk['references_column']})"
+            )
+    else:
+        print("Foreign Keys: None")
     
     print(f"Total Rows: {row_count}")
     print("=" * 80 + "\n")

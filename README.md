@@ -40,12 +40,14 @@ NirvahaDB is a fully functional file based relational database management system
   - ORDER BY (ASC/DESC)
   - LIMIT for result pagination
   - Multi-row INSERT statements
+  - INNER JOIN, LEFT JOIN, RIGHT JOIN (nested loop)
+  - Subqueries with WHERE IN
+  - EXISTS / NOT EXISTS (non-correlated)
 
 - ✅ **Constraint Management**
   - Primary Key constraints (single and composite)
-  - NOT NULL enforcement
   - Duplicate detection
-  - Foreign key relationships (planned)
+  - Foreign key relationships with RESTRICT enforcement
 
 - ✅ **Schema Operations**
   - Add/Drop columns
@@ -209,6 +211,15 @@ CREATE TABLE students (
   name VARCHAR,
   age INT
 );
+
+-- Foreign key (table-level)
+CREATE TABLE students (
+  id INT,
+  name VARCHAR,
+  dept_id INT,
+  PRIMARY KEY (id),
+  FOREIGN KEY (dept_id) REFERENCES departments(id)
+);
 ```
 
 ### 2. INSERT INTO
@@ -240,8 +251,44 @@ SELECT * FROM students;
 -- Select specific columns
 SELECT id, name FROM students;
 
+-- INNER JOIN
+SELECT *
+FROM students
+INNER JOIN departments
+ON students.dept_id = departments.id;
+
+-- LEFT JOIN
+SELECT *
+FROM students
+LEFT JOIN departments
+ON students.dept_id = departments.id;
+
+-- RIGHT JOIN
+SELECT *
+FROM students
+RIGHT JOIN departments
+ON students.dept_id = departments.id;
+
 -- With WHERE clause
 SELECT * FROM students WHERE age > 21;
+
+-- WHERE IN (subquery)
+SELECT name
+FROM students
+WHERE dept_id IN (
+  SELECT id FROM departments WHERE name = 'CSE'
+);
+
+-- EXISTS / NOT EXISTS (non-correlated)
+SELECT * FROM departments
+WHERE EXISTS (
+  SELECT id FROM students WHERE dept_id = 10
+);
+
+SELECT * FROM departments
+WHERE NOT EXISTS (
+  SELECT id FROM students WHERE dept_id = 999
+);
 
 -- With ORDER BY
 SELECT * FROM students ORDER BY age DESC;
@@ -527,7 +574,10 @@ NirvahaDB/
 │   ├── alter_storage.py   # ALTER TABLE storage handler
 │   ├── show_storage.py    # SHOW TABLES storage handler
 │   ├── describe_storage.py# DESCRIBE TABLE storage handler
-│   └── truncate_storage.py# TRUNCATE TABLE storage handler
+│   ├── truncate_storage.py# TRUNCATE TABLE storage handler
+│   ├── join_engine.py      # Nested-loop join engine
+│   ├── subquery_engine.py  # Subquery execution helpers
+│   └── foreign_key_manager.py # FK enforcement and metadata helpers
 │
 ├── normalization/         # Schema normalization analysis module
 │   ├── __init__.py
@@ -610,9 +660,18 @@ NirvahaDB/
     ["age", "INT"],
     ["gpa", "DOUBLE"]
   ],
-  "primary_key": ["id"]
+  "primary_key": ["id"],
+  "foreign_keys": [
+    {
+      "column": "dept_id",
+      "references_table": "departments",
+      "references_column": "id"
+    }
+  ]
 }
 ```
+
+Note: EXISTS/NOT EXISTS currently support non-correlated subqueries only.
 
 ## 🤝 Contributing
 

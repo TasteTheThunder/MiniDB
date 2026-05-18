@@ -6,10 +6,13 @@ from visualizer import print_trace, print_result
 from utils import (
     table_paths,
     check_table_exists,
-    compare
+    compare,
+    remove_quotes
 )
 from index.index_manager import get_index_manager
 from index.index_utils import build_row_offsets, load_row_offsets
+from .join_engine import nested_loop_join
+from .subquery_engine import execute_subquery, extract_in_values, ensure_non_correlated
 
 
 def _determine_operator_type(op):
@@ -196,6 +199,89 @@ def _read_rows_by_numbers(tbl, row_numbers, table=None, database=None):
     return (rows, scanned_lines)
 
 
+def _condition_type(condition):
+    if not condition:
+        return None
+    if isinstance(condition, tuple):
+        return "simple"
+    if isinstance(condition, dict):
+        return condition.get("type")
+    return "simple"
+
+
+def _resolve_column(columns, column):
+    if column in columns:
+        return column, columns.index(column)
+
+    if "." in column:
+        if column in columns:
+            return column, columns.index(column)
+        raise Exception(f"No column with name {column} found")
+
+    matches = [c for c in columns if c.endswith("." + column)]
+    if len(matches) == 1:
+        return matches[0], columns.index(matches[0])
+    if len(matches) > 1:
+        raise Exception(f"Ambiguous column '{column}'")
+    raise Exception(f"No column with name {column} found")
+
+
+def _apply_condition(rows, columns, condition, database=None):
+    if not condition:
+        return rows
+
+    cond_type = _condition_type(condition)
+
+    if cond_type == "simple":
+        if isinstance(condition, dict):
+            column = condition["column"]
+            op = condition["operator"]
+            value = condition["value"]
+        else:
+            column, op, value = condition
+
+        _resolved, col_idx = _resolve_column(columns, column)
+        filtered = []
+        for row in rows:
+            if compare(row[col_idx], op, value):
+                filtered.append(row)
+        return filtered
+
+    if cond_type == "in":
+        column = condition["column"]
+        _resolved, col_idx = _resolve_column(columns, column)
+
+        sub_rows, _sub_cols = execute_subquery(condition["subquery"], database)
+        values = set(extract_in_values(sub_rows))
+
+        print_trace("SUBQUERY", [
+            f"Subquery Result : {list(values)}"
+        ])
+
+        filtered = []
+        for row in rows:
+            if remove_quotes(str(row[col_idx])) in values:
+                filtered.append(row)
+        return filtered
+
+    if cond_type == "exists":
+        ensure_non_correlated(condition["subquery"])
+        sub_rows, _sub_cols = execute_subquery(condition["subquery"], database)
+        exists = len(sub_rows) > 0
+        negated = condition.get("negated", False)
+
+        print_trace("SUBQUERY", [
+            f"EXISTS Result : {exists}",
+            f"Negated : {negated}"
+        ])
+
+        if (exists and not negated) or ((not exists) and negated):
+            return rows
+        return []
+
+    raise Exception("Invalid WHERE condition")
+
+
 def select_rows(
         table,
         condition,
@@ -206,59 +292,113 @@ def select_rows(
     having=None,
         order_by=None,
         limit=None,
-        database=None
+    database=None,
+    join=None,
+    return_rows=False
 ):
     """
     Query data from a table with various filtering and aggregation options.
     Uses adaptive indexing when available.
     If database is specified, queries database-specific table.
     """
-    tbl, meta = table_paths(table, database)
-    check_table_exists(tbl, meta)
+    tbl = None
+    metadata = None
+    columns = []
+    used_index = False
+    index_hits = None
+    rows_scanned = 0
 
-    metadata = json.load(open(meta))
-    columns = [c[0] for c in metadata["columns"]]
+    if join:
+        columns, filtered = nested_loop_join(
+            table,
+            join["table"],
+            join["left_column"],
+            join["right_column"],
+            join["type"],
+            database=database
+        )
+        rows_scanned = len(filtered)
+    else:
+        tbl, meta = table_paths(table, database)
+        check_table_exists(tbl, meta)
+
+        metadata = json.load(open(meta))
+        columns = [c[0] for c in metadata["columns"]]
 
     if selected_columns and selected_columns != ["*"]:
+        resolved = []
         for col in selected_columns:
-            if col not in columns:
-                raise Exception(f"No column with name {col} found in {table}")
+            resolved_col, _ = _resolve_column(columns, col)
+            resolved.append(resolved_col)
+        selected_columns = resolved
 
-    if group_by and group_by not in columns:
-        raise Exception(f"No column with name {group_by} found in {table}")
+    if group_by:
+        resolved_group, _ = _resolve_column(columns, group_by)
+        group_by = resolved_group
 
     if order_by:
         sort_col, _sort_order = order_by
-        if sort_col not in columns and "(" not in sort_col:
-            raise Exception(f"No column with name {sort_col} found in {table}")
+        if "(" not in sort_col:
+            resolved_sort, _ = _resolve_column(columns, sort_col)
+            order_by = (resolved_sort, _sort_order)
 
     if aggregate and aggregate != "COUNT":
-        if not agg_column or agg_column not in columns:
-            raise Exception(f"No column with name {agg_column} found in {table}")
+        if not agg_column:
+            raise Exception("Aggregate column is required")
+        resolved_agg, _ = _resolve_column(columns, agg_column)
+        agg_column = resolved_agg
 
     if having:
         if not (aggregate and group_by):
             raise Exception("HAVING requires GROUP BY with an aggregate")
         expected_col = agg_column if agg_column else "*"
+        if having["agg_column"] != "*":
+            resolved_having_col, _ = _resolve_column(columns, having["agg_column"])
+            having["agg_column"] = resolved_having_col
         if having["aggregate"] != aggregate:
             raise Exception("HAVING aggregate must match SELECT aggregate")
         if having["agg_column"] != expected_col:
             raise Exception("HAVING aggregate column must match SELECT aggregate column")
 
-    # Use index-aware filtering
-    filtered, rows_scanned, used_index, index_hits = _get_filtered_rows_with_index(
-        table, tbl, condition, columns, metadata, database
-    )
+    cond_type = _condition_type(condition)
 
-    trace_lines = [
-        f"Open File : {tbl}",
-        f"Rows Scanned : {rows_scanned}",
-        f"Index Used : {'Yes' if used_index else 'No'}"
-    ]
-    if used_index:
-        trace_lines.append(f"Index Hits : {index_hits}")
+    if not join and cond_type == "simple":
+        if isinstance(condition, dict):
+            condition_tuple = (
+                condition["column"],
+                condition["operator"],
+                condition["value"]
+            )
+        else:
+            condition_tuple = condition
 
-    print_trace("STORAGE ENGINE", trace_lines)
+        filtered, rows_scanned, used_index, index_hits = _get_filtered_rows_with_index(
+            table, tbl, condition_tuple, columns, metadata, database
+        )
+    else:
+        if not join:
+            rows = open(tbl).readlines()
+            filtered = [row.strip().split(",") for row in rows]
+            rows_scanned = len(rows)
+
+        filtered = _apply_condition(filtered, columns, condition, database)
+
+    if join:
+        print_trace("STORAGE ENGINE", [
+            f"Join Query : {table} {join['type']} JOIN {join['table']}",
+            f"Rows Scanned : {rows_scanned}",
+            "Index Used : No"
+        ])
+    else:
+        trace_lines = [
+            f"Open File : {tbl}",
+            f"Rows Scanned : {rows_scanned}",
+            f"Index Used : {'Yes' if used_index else 'No'}"
+        ]
+        if used_index:
+            trace_lines.append(f"Index Hits : {index_hits}")
+
+        print_trace("STORAGE ENGINE", trace_lines)
 
     # ===========================
     # ORDER BY (for non-aggregated queries)
@@ -267,15 +407,13 @@ def select_rows(
     # Skip ORDER BY here if we have GROUP BY - it will be handled in the GROUP BY section
     if order_by and not (aggregate and group_by):
         sort_col, sort_order = order_by
-        
-        # Check if column exists in the table
+
         if sort_col in columns:
             sort_idx = columns.index(sort_col)
-            
-            # Try to sort numerically, fall back to string sort
+
             try:
                 filtered.sort(
-                    key=lambda row: float(row[sort_idx]) if row[sort_idx] != "NULL" else float('-inf'),
+                    key=lambda row: float(row[sort_idx]) if row[sort_idx] != "NULL" else float("-inf"),
                     reverse=(sort_order == "DESC")
                 )
             except (ValueError, IndexError):
@@ -362,17 +500,20 @@ def select_rows(
                     results.sort(key=lambda x: x[0], 
                                 reverse=(order_direction == "DESC"))
             
-            # Print results
+            if return_rows:
+                result_rows = [[grp_val, result] for grp_val, result in results]
+                return result_rows, [group_by, agg_display]
+
             print(f"\n{group_by} | {agg_display}")
             print("-" * 40)
-            
+
             for grp_val, result in results:
                 print(f"{grp_val} | {result}")
-            
+
             print_trace("FILE SYSTEM", [
                 "Grouped aggregate computed"
             ])
-            
+
             print_result("✅ Aggregate Operation Completed")
             return
 
@@ -382,28 +523,30 @@ def select_rows(
 
         if aggregate == "COUNT":
             result = len(filtered)
+            if return_rows:
+                return [[result]], ["COUNT(*)"]
             print(f"\nCOUNT = {result}")
-
         else:
             idx = columns.index(agg_column)
-            nums = [float(r[idx]) for r in filtered]
+            nums = [float(r[idx]) for r in filtered if r[idx] != "NULL"]
 
             if not nums:
+                if return_rows:
+                    return [["NULL"]], [f"{aggregate}({agg_column})"]
                 print("No rows")
                 return
 
             if aggregate == "SUM":
                 result = sum(nums)
-
             elif aggregate == "AVG":
                 result = sum(nums) / len(nums)
-
             elif aggregate == "MIN":
                 result = min(nums)
-
             elif aggregate == "MAX":
                 result = max(nums)
 
+            if return_rows:
+                return [[result]], [f"{aggregate}({agg_column})"]
             print(f"\n{aggregate}({agg_column}) = {result}")
 
         print_trace("FILE SYSTEM", [
@@ -421,12 +564,16 @@ def select_rows(
         selected_columns = columns
 
     indexes = [columns.index(c) for c in selected_columns]
+    result_rows = [[r[i] for i in indexes] for r in filtered]
+
+    if return_rows:
+        return result_rows, selected_columns
 
     print("\nResult:")
     print(" | ".join(selected_columns))
 
-    for r in filtered:
-        print(" | ".join([r[i] for i in indexes]))
+    for r in result_rows:
+        print(" | ".join(r))
 
     print_trace("FILE SYSTEM", [
         f"{len(filtered)} row(s) returned"

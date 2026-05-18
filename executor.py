@@ -47,6 +47,7 @@ def execute_query(command, database=None):
             command["table"],
             command["columns"],
             command.get("primary_key"),
+            command.get("foreign_keys"),
             database=database
         )
 
@@ -106,7 +107,8 @@ def execute_query(command, database=None):
             command.get("having"),
             command.get("order_by"),
             command.get("limit"),
-            database=database
+            database=database,
+            join=command.get("join")
         )
 
 

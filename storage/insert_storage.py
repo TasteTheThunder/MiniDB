@@ -10,6 +10,7 @@ from utils import (
     validate_value
 )
 from index.index_manager import get_index_manager
+from .foreign_key_manager import validate_foreign_keys_on_insert
 
 
 def insert_row(table, values, insert_columns=None, database=None):
@@ -112,6 +113,12 @@ def insert_row(table, values, insert_columns=None, database=None):
                     raise Exception(
                         f"Composite Primary Key violation: ({pk_values})"
                     )
+
+    # =====================================
+    # FOREIGN KEY CHECK
+    # =====================================
+
+    validate_foreign_keys_on_insert(table, columns, final_values, database)
 
     # =====================================
     # WRITE FILE

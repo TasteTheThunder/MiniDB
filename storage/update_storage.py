@@ -11,6 +11,10 @@ from utils import (
     validate_value
 )
 from index.index_manager import get_index_manager
+from .foreign_key_manager import (
+    validate_foreign_key_on_update,
+    validate_restrict_on_update
+)
 
 
 def update_row(table, set_data, condition, database=None):
@@ -43,11 +47,14 @@ def update_row(table, set_data, condition, database=None):
     if dtype.upper() in ["CHAR", "VARCHAR"]:
         set_val = remove_quotes(set_val)
 
+    validate_foreign_key_on_update(table, set_col, set_val, database)
+
     si = columns.index(set_col)
     ci = columns.index(cond_col)
 
     new = []
     updated = 0
+    affected_rows = []
 
     for row in open(tbl):
         vals = row.strip().split(",")
@@ -57,6 +64,7 @@ def update_row(table, set_data, condition, database=None):
             op,
             cond_val
         ):
+            affected_rows.append(list(vals))
             vals[si] = set_val
             updated += 1
 
@@ -66,6 +74,8 @@ def update_row(table, set_data, condition, database=None):
         raise Exception(
             f"No matching row found for {cond_col} {op} {cond_val} in {table}"
         )
+
+    validate_restrict_on_update(table, columns, set_col, affected_rows, database)
 
     open(tbl, "w").writelines(new)
 

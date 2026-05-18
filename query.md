@@ -24,6 +24,20 @@ CREATE TABLE students (
   PRIMARY KEY (id)
 );
 
+CREATE TABLE departments (
+  id INT,
+  name VARCHAR,
+  PRIMARY KEY (id)
+);
+
+CREATE TABLE students (
+  id INT,
+  name VARCHAR,
+  dept_id INT,
+  PRIMARY KEY (id),
+  FOREIGN KEY (dept_id) REFERENCES departments(id)
+);
+
 CREATE TABLE enrollments (
   student_id INT,
   course_id INT,
@@ -83,6 +97,15 @@ INSERT INTO students VALUES
   (5, 'Eve', 23, 3.5);
 ```
 
+Foreign key violation example:
+```sql
+INSERT INTO students VALUES (1, 'Alice', 99);
+```
+Expected output:
+```
+❌ Error: Foreign key violation: students.dept_id references departments.id (99)
+```
+
 ## SELECT
 
 Select all columns:
@@ -93,6 +116,30 @@ SELECT * FROM students;
 Select specific columns:
 ```sql
 SELECT id, name FROM students;
+```
+
+INNER JOIN:
+```sql
+SELECT *
+FROM students
+INNER JOIN departments
+ON students.dept_id = departments.id;
+```
+
+LEFT JOIN:
+```sql
+SELECT *
+FROM students
+LEFT JOIN departments
+ON students.dept_id = departments.id;
+```
+
+RIGHT JOIN:
+```sql
+SELECT *
+FROM students
+RIGHT JOIN departments
+ON students.dept_id = departments.id;
 ```
 
 WHERE (equality):
@@ -124,6 +171,30 @@ WHERE (not equal):
 ```sql
 SELECT * FROM students WHERE age != 21;
 ```
+
+WHERE IN (subquery):
+```sql
+SELECT name
+FROM students
+WHERE dept_id IN (
+  SELECT id FROM departments WHERE name = 'CSE'
+);
+```
+
+EXISTS / NOT EXISTS:
+```sql
+SELECT * FROM departments
+WHERE EXISTS (
+  SELECT id FROM students WHERE dept_id = 10
+);
+
+SELECT * FROM departments
+WHERE NOT EXISTS (
+  SELECT id FROM students WHERE dept_id = 999
+);
+```
+
+Note: EXISTS/NOT EXISTS currently support non-correlated subqueries only.
 
 ORDER BY:
 ```sql
@@ -165,6 +236,58 @@ SELECT age, COUNT(*) FROM students
   LIMIT 3;
 ```
 
+## Multi-table Queries
+
+Create related tables:
+```sql
+CREATE TABLE departments (
+  id INT,
+  name VARCHAR,
+  PRIMARY KEY (id)
+);
+
+CREATE TABLE students (
+  id INT,
+  name VARCHAR,
+  dept_id INT,
+  PRIMARY KEY (id),
+  FOREIGN KEY (dept_id) REFERENCES departments(id)
+);
+```
+
+Seed data:
+```sql
+INSERT INTO departments VALUES (10, 'CSE'), (20, 'ECE'), (30, 'ME');
+INSERT INTO students VALUES (1, 'Alice', 10), (2, 'Bob', 20), (3, 'Cara', 10);
+```
+
+Join tests:
+```sql
+SELECT *
+FROM students
+INNER JOIN departments
+ON students.dept_id = departments.id;
+
+SELECT *
+FROM students
+LEFT JOIN departments
+ON students.dept_id = departments.id;
+
+SELECT *
+FROM students
+RIGHT JOIN departments
+ON students.dept_id = departments.id;
+```
+
+WHERE IN with subquery:
+```sql
+SELECT name
+FROM students
+WHERE dept_id IN (
+  SELECT id FROM departments WHERE name = 'CSE'
+);
+```
+
 ## UPDATE
 
 Single-column update with condition:
@@ -179,6 +302,15 @@ Delete with condition:
 ```sql
 DELETE FROM students WHERE id = 1;
 DELETE FROM students WHERE age < 18;
+```
+
+Delete restrict example:
+```sql
+DELETE FROM departments WHERE id = 10;
+```
+Expected output:
+```
+❌ Error: Cannot delete row because it is referenced by foreign key in table students
 ```
 
 ## ALTER TABLE

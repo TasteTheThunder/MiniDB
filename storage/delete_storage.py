@@ -9,6 +9,7 @@ from utils import (
     compare
 )
 from index.index_manager import get_index_manager
+from .foreign_key_manager import validate_restrict_on_delete
 
 
 def delete_row(table, condition, database=None):
@@ -29,6 +30,7 @@ def delete_row(table, condition, database=None):
 
     new = []
     deleted = 0
+    deleted_rows = []
 
     for row in open(tbl):
         vals = row.strip().split(",")
@@ -39,6 +41,7 @@ def delete_row(table, condition, database=None):
             val
         ):
             deleted += 1
+            deleted_rows.append(vals)
         else:
             new.append(row)
 
@@ -46,6 +49,8 @@ def delete_row(table, condition, database=None):
         raise Exception(
             f"No matching row found for {cond_col} {op} {val} in {table}"
         )
+
+    validate_restrict_on_delete(table, columns, deleted_rows, database)
 
     open(tbl, "w").writelines(new)
 
