@@ -154,8 +154,8 @@ NirvahaDB >
 -- Enable educational mode (shows execution traces)
 SET MODE EDUCATIONAL;
 
--- Enable production mode (faster, no traces)
-SET MODE PRODUCTION;
+-- Enable normal mode (no educational traces)
+SET MODE NORMAL;
 
 -- Check current mode
 SHOW MODE;
@@ -272,6 +272,11 @@ ON students.dept_id = departments.id;
 -- With WHERE clause
 SELECT * FROM students WHERE age > 21;
 
+-- Range predicates (SELECT)
+SELECT * FROM students WHERE age <= 21;
+SELECT * FROM students WHERE age BETWEEN 19 AND 25;
+SELECT * FROM students WHERE age >= 19 AND age <= 25;
+
 -- WHERE IN (subquery)
 SELECT name
 FROM students
@@ -318,6 +323,10 @@ SELECT course_id, COUNT(*) FROM enrollments
     ORDER BY COUNT(*) DESC 
     LIMIT 3;
 ```
+
+`BETWEEN` is inclusive. `AND` combines simple comparison and `BETWEEN`
+predicates in `SELECT` statements; `OR`, parentheses, and compound
+`IN`/`EXISTS` predicates are not supported.
 
 ### 4. UPDATE
 
@@ -473,6 +482,18 @@ SELECT * FROM students WHERE id = 4;
 ```
 
 For full indexing details, see `INDEX_README.md`.
+
+### Query Timing
+
+Statements routed through the SQL executor print a measured execution time:
+
+```text
+Execution time: X.XXX ms
+```
+
+The timer uses `time.perf_counter()` and starts after SQL parsing, so it covers
+executor work (including storage/index processing and executor output) but not
+tokenization or parsing.
 
 ### 13. Utility Commands
 

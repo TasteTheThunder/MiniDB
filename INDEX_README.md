@@ -171,9 +171,8 @@ Query 3: WHERE id = 3       → Full scan, record stat
                             ⬇
                      THRESHOLD REACHED!
                      Create Hash Index
-Query 4: WHERE id = 1       → Index lookup! O(1)
-Query 5: WHERE id = 2       → Index lookup! O(1)
-...                         → 100,000x+ faster!
+Query 4: WHERE id = 1       → Index lookup and direct row retrieval
+Query 5: WHERE id = 2       → Index lookup and direct row retrieval
 ```
 
 ---
@@ -191,9 +190,9 @@ SELECT * FROM students WHERE id = 5
 
 **Characteristics:**
 - Data Structure: Hash table `{value: [row_numbers]}`
-- Time: O(1) average case
-- File: `index/table_column.hash`
-- Format: one per line `value:row_number`
+- Lookup: average `O(1)`; matching rows still need to be read from storage
+- File: `index/<database>/<table>_<column>.hash` (or `index/` for legacy tables)
+- Format: readable mappings such as `value -> row0`
 
 **Example:**
 ```
@@ -215,9 +214,9 @@ SELECT * FROM students WHERE age <= 30
 
 **Characteristics:**
 - Data Structure: Sorted list `[(value, row_num), ...]`
-- Time: O(log n) with binary search
-- File: `index/table_column.sorted`
-- Format: one per line `value,row_number` (sorted)
+- Lookup: `O(log n)` boundary search plus reading the matching rows
+- File: `index/<database>/<table>_<column>.sorted` (or `index/` for legacy tables)
+- Format: a readable sorted list such as `(value, row0)`
 
 **Example:**
 ```
@@ -249,29 +248,14 @@ Index Hits : 2   (row ids [1, 3])
 Rows Scanned : 2 (reads only the target rows)
 ```
 
-### Without Index (Full Table Scan)
-```
-Table Size: 1,000,000 rows
-Query: WHERE id = 5
-Time: ~1,000,000 comparisons
-Speed: Slow (baseline)
-```
+### Complexity and Measurement
 
-### With Hash Index
-```
-Table Size: 1,000,000 rows
-Query: WHERE id = 5
-Time: 1 hash lookup + 1 file read
-Speed: ~1,000,000x faster!
-```
-
-### With Sorted Index (Range Query)
-```
-Table Size: 1,000,000 rows
-Query: WHERE age > 20
-Time: ~20 binary search comparisons + k reads
-Speed: ~50,000x faster! (compared to full scan)
-```
+A full scan evaluates each table row. A hash index performs average `O(1)`
+candidate lookup for equality; a sorted index performs `O(log n)` boundary
+search for range predicates. Both paths still read and return the matching
+rows, so end-to-end speed-up depends on selectivity, storage I/O, output, and
+the runtime environment. Measure the actual workload instead of assuming a
+fixed multiplier.
 
 ---
 
@@ -464,6 +448,11 @@ Example (sorted by value):
 
 ### Row Offsets File (table.offsets)
 ```
+
+Offsets are stored at `index/<database>/<table>.offsets` (or directly in
+`index/` for legacy tables). They are cached in memory per database and table.
+The cache is invalidated after storage changes; missing, stale, or malformed
+offset files are rebuilt before indexed row retrieval continues.
 byte_offset
 byte_offset
 ...
@@ -497,6 +486,8 @@ SELECT * FROM students WHERE id = 4;  -- hash index should be used
 SELECT * FROM students WHERE age > 20;
 SELECT * FROM students WHERE age >= 21;
 SELECT * FROM students WHERE age < 23;
+SELECT * FROM students WHERE age BETWEEN 19 AND 25;
+SELECT * FROM students WHERE age >= 19 AND age <= 25;
 SELECT * FROM students WHERE age > 21; -- sorted index should be used
 ```
 
@@ -530,14 +521,15 @@ with open('index/query_stats.json') as f:
 ```
 
 ### Q: How to clear all indices?
-**A:** Delete the index files
+**A:** Delete the generated index files for the database you want to reset.
 ```python
 import os, shutil
-if os.path.exists('index'):
-    # Keep __init__.py
-    for f in os.listdir('index'):
-        if f.endswith(('.json', '.hash', '.sorted')):
-            os.remove(os.path.join('index', f))
+database = 'college_db'
+index_dir = os.path.join('index', database)
+if os.path.exists(index_dir):
+    for filename in os.listdir(index_dir):
+        if filename.endswith(('.json', '.hash', '.sorted', '.offsets')):
+            os.remove(os.path.join(index_dir, filename))
 ```
 
 ---
@@ -570,13 +562,16 @@ For more information, see:
 
 ---
 
-## Performance Gains
+## Performance Characteristics
 
-| Operation | Without Index | With Index | Speed-up |
-|-----------|---------------|------------|----------|
-| Equality on 1M rows | O(n) | O(1) | ~1,000,000x |
-| Range query on 1M rows | O(n) | O(log n) | ~50,000x |
-| Very selective range | O(n) worst case | O(log n) best case | ~100,000x |
+| Operation | Candidate Selection | Row Retrieval |
+|-----------|---------------------|---------------|
+| Equality | Hash lookup, average `O(1)` | One read per matching row |
+| Range | Sorted-index boundary search, `O(log n)` | One read per matching row |
+| Full scan | `O(n)` predicate evaluation | Reads every table row |
+
+End-to-end performance should be reported from measured workloads rather than
+from fixed theoretical speed-up multipliers.
 
 ---
 
@@ -584,7 +579,7 @@ For more information, see:
 
 ✅ **Automatic** - No manual index management needed  
 ✅ **Intelligent** - Uses query patterns to decide when to index  
-✅ **Fast** - O(1) hash and O(log n) sorted indices  
+✅ **Efficient candidate selection** - O(1) average hash and O(log n) sorted lookup  
 ✅ **Simple** - Zero configuration  
 ✅ **Transparent** - Works with existing code  
 ✅ **Persistent** - Survives across sessions  
@@ -597,14 +592,14 @@ For questions about the implementation, refer to:
 - Code comments in the index modules
 - Docstrings in Python files
 - Generated query stats in `index/query_stats.json`
-- Generated index files in `index/*.hash` and `index/*.sorted`
+- Generated index files in `index/<database>/` (`.hash`, `.sorted`, and `.offsets`)
 
 Note:
-- `query_stats.json`, `.hash`, and `.sorted` files are runtime-generated artifacts.
+- `query_stats.json`, `.hash`, `.sorted`, and `.offsets` files are runtime-generated artifacts.
 - These files are expected to be created locally as queries run and are typically git-ignored.
 
 ---
 
 **Status:** ✅ Complete and Tested  
 **Version:** 1.0  
-**Last Updated:** 2026-03-14
+**Last Updated:** 2026-10-24

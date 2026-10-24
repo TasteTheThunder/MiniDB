@@ -27,7 +27,7 @@ NirvahaDB stores table-specific FDs in metadata for reuse.
 
 ## 3. Interactive FD Input Flow
 
-If no FD is stored for a table and interactive mode is enabled, MiniDB asks for FD input.
+If no FD is stored for a table and interactive mode is enabled, NirvahaDB asks for FD input.
 
 Prompt format:
 
@@ -81,7 +81,7 @@ Why it matters:
 NirvahaDB determines candidate keys as follows:
 
 1. If metadata primary key exists, it is used directly as the candidate key base.
-2. Otherwise, MiniDB searches minimal attribute combinations whose closure covers all table attributes.
+2. Otherwise, NirvahaDB searches minimal attribute combinations whose closure covers all table attributes.
 
 A candidate key is:
 - Unique determinant of all attributes (superkey)

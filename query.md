@@ -172,6 +172,20 @@ WHERE (not equal):
 SELECT * FROM students WHERE age != 21;
 ```
 
+WHERE (inclusive range):
+```sql
+SELECT * FROM students WHERE age BETWEEN 19 AND 25;
+```
+
+WHERE (compound range):
+```sql
+SELECT * FROM students WHERE age >= 19 AND age <= 25;
+```
+
+`BETWEEN` includes both bounds. `AND` is supported for simple comparison and
+`BETWEEN` predicates in `SELECT`; `OR`, parentheses, and compound `IN`/`EXISTS`
+predicates are not supported.
+
 WHERE IN (subquery):
 ```sql
 SELECT name
@@ -377,7 +391,12 @@ Range queries trigger sorted index creation after repeated use:
 SELECT * FROM students WHERE age > 20;
 SELECT * FROM students WHERE age >= 21;
 SELECT * FROM students WHERE age < 25;
+SELECT * FROM students WHERE age BETWEEN 19 AND 25;
+SELECT * FROM students WHERE age >= 19 AND age <= 25;
 ```
+
+Equality queries use hash indexes; `<`, `<=`, `>`, `>=`, `BETWEEN`, and
+compound comparison ranges use sorted indexes after the adaptive threshold.
 
 ## Utility
 
