@@ -10,7 +10,11 @@ from utils import (
     remove_quotes
 )
 from index.index_manager import get_index_manager
-from index.index_utils import build_row_offsets, load_row_offsets
+from index.index_utils import (
+    build_row_offsets,
+    build_row_offsets_and_load_rows,
+    load_row_offsets,
+)
 from .join_engine import nested_loop_join
 from .subquery_engine import execute_subquery, extract_in_values, ensure_non_correlated
 
@@ -48,15 +52,11 @@ def _get_filtered_rows_with_index(table, tbl, condition, columns, metadata, data
     """
     manager = get_index_manager(database)
     
-    def _full_scan_filter(col_idx, op, val):
+    def _full_scan_filter():
         """Run a full scan filter and return (filtered_rows, all_rows)."""
         all_rows = open(tbl).readlines()
-        filtered_rows = []
-        for row in all_rows:
-            vals = row.strip().split(",")
-            if compare(vals[col_idx], op, val):
-                filtered_rows.append(vals)
-        return filtered_rows, all_rows
+        all_values = [row.strip().split(",") for row in all_rows]
+        return _apply_condition(all_values, columns, condition, database), all_rows
 
     if not condition:
         # No condition, must do full table scan
@@ -64,85 +64,120 @@ def _get_filtered_rows_with_index(table, tbl, condition, columns, metadata, data
         filtered = [row.strip().split(",") for row in rows]
         return (filtered, len(rows), False, None)
     
-    col, op, val = condition
-    
-    if col not in columns:
-        raise Exception(f"No column with name {col} found in {table}")
-    
-    col_idx = columns.index(col)
-    
-    # Determine operator type and record query
-    op_type = _determine_operator_type(op)
-    should_create_hash, should_create_sorted = manager.record_query(table, col, op)
-    
-    # Try to use existing index
-    row_numbers = manager.search_with_index(table, col, op, val)
-    
-    if row_numbers is not None:
-        # Index was found and used
+    index_terms = _index_terms(condition)
+    pending_indices = []
+    active_index_terms = []
+    indexed_row_numbers = None
+    recorded_patterns = set()
+
+    for col, op, val in index_terms:
+        if col not in columns:
+            raise Exception(f"No column with name {col} found in {table}")
+
+        col_idx = columns.index(col)
+        pattern = (col, _determine_operator_type(op))
+        if pattern not in recorded_patterns:
+            should_create_hash, should_create_sorted = manager.record_query(table, col, op)
+            recorded_patterns.add(pattern)
+            if should_create_hash or should_create_sorted:
+                pending_indices.append((col, col_idx, op))
+
+        row_numbers = manager.search_with_index(table, col, op, val)
+        if row_numbers is not None:
+            active_index_terms.append((col, col_idx, op))
+            row_number_set = set(row_numbers)
+            if indexed_row_numbers is None:
+                indexed_row_numbers = row_number_set
+            else:
+                indexed_row_numbers &= row_number_set
+
+    if indexed_row_numbers is not None:
         filtered, scanned_lines = _read_rows_by_numbers(
             tbl,
-            sorted(row_numbers),
+            sorted(indexed_row_numbers),
             table=table,
             database=database
         )
-        
+        filtered = _apply_condition(filtered, columns, condition, database)
+
+        if _condition_type(condition) == "simple" and len(index_terms) == 1:
+            index_trace = f"Index used for column '{index_terms[0][0]}'"
+            stale_target = f"{table}.{index_terms[0][0]}"
+        else:
+            index_trace = "Index used for WHERE condition"
+            stale_target = table
+
         print_trace("INDEX", [
-            f"Index used for column '{col}'",
-            f"Row numbers retrieved: {len(row_numbers)}"
+            index_trace,
+            f"Row numbers retrieved: {len(indexed_row_numbers)}"
         ])
 
-        # Safety fallback for stale indices:
-        # if an index says "no rows", verify with full scan once.
-        # This prevents false negatives when index files are outdated.
-        if len(row_numbers) == 0:
-            scan_filtered, scan_rows = _full_scan_filter(col_idx, op, val)
+        if not indexed_row_numbers:
+            scan_filtered, scan_rows = _full_scan_filter()
             if scan_filtered:
                 print_trace("INDEX", [
-                    f"Stale index detected for {table}.{col}",
+                    f"Stale index detected for {stale_target}",
                     "Falling back to full scan and rebuilding index"
                 ])
-
-                table_data = [row.strip().split(",") for row in scan_rows]
-                try:
-                    if op == '=':
-                        manager.create_hash_index(table, col, table_data, col_idx)
-                    else:
-                        manager.create_sorted_index(table, col, table_data, col_idx)
-                except Exception as e:
-                    print(f"Warning: Could not rebuild stale index: {e}")
-
+                _create_pending_indices(
+                    manager, table, tbl, database, active_index_terms, scan_rows
+                )
                 return (scan_filtered, len(scan_rows), False, None)
 
-        return (filtered, scanned_lines, True, len(row_numbers))
-    
-    # No index available, do full table scan
-    filtered, rows = _full_scan_filter(col_idx, op, val)
-    
-    # Check if we should create index after threshold reached
-    if should_create_hash or should_create_sorted:
-        try:
-            # Load full table data for index creation
-            all_rows = open(tbl).readlines()
-            table_data = [row.strip().split(",") for row in all_rows]
-            
-            create_hash = op == "=" and should_create_hash
-            create_sorted = op != "=" and should_create_sorted
+        return (filtered, scanned_lines, True, len(indexed_row_numbers))
 
-            if create_hash or create_sorted:
-                print_trace("INDEX CREATION", [
-                    f"Building index for {table}.{col}",
-                    f"{'HASH' if create_hash else 'SORTED'} index"
-                ])
-
-                if create_hash:
-                    manager.create_hash_index(table, col, table_data, col_idx)
-                else:
-                    manager.create_sorted_index(table, col, table_data, col_idx)
-        except Exception as e:
-            print(f"Warning: Could not create index: {e}")
-    
+    filtered, rows = _full_scan_filter()
+    _create_pending_indices(manager, table, tbl, database, pending_indices)
     return (filtered, len(rows), False, None)
+
+
+def _index_terms(condition):
+    if isinstance(condition, tuple):
+        return [condition]
+
+    cond_type = _condition_type(condition)
+    if cond_type == "simple":
+        return [(condition["column"], condition["operator"], condition["value"])]
+    if cond_type == "between":
+        return [(condition["column"], "BETWEEN", (condition["lower"], condition["upper"]))]
+    if cond_type == "and":
+        terms = []
+        for part in condition["conditions"]:
+            terms.extend(_index_terms(part))
+        return terms
+
+    return []
+
+
+def _create_pending_indices(manager, table, tbl, database, pending_indices, table_rows=None):
+    if not pending_indices:
+        return
+
+    try:
+        if table_rows is None:
+            table_data = build_row_offsets_and_load_rows(tbl, table, database)
+        else:
+            table_data = [row.strip().split(",") for row in table_rows]
+            build_row_offsets(tbl, table, database)
+
+        created = set()
+        for col, col_idx, op in pending_indices:
+            index_type = "hash" if op == "=" else "sorted"
+            key = (col, index_type)
+            if key in created:
+                continue
+
+            print_trace("INDEX CREATION", [
+                f"Building index for {table}.{col}",
+                f"{index_type.upper()} index"
+            ])
+            if index_type == "hash":
+                manager.create_hash_index(table, col, table_data, col_idx)
+            else:
+                manager.create_sorted_index(table, col, table_data, col_idx)
+            created.add(key)
+    except Exception as e:
+        print(f"Warning: Could not create index: {e}")
 
 
 def _read_rows_by_numbers(tbl, row_numbers, table=None, database=None):
@@ -245,6 +280,20 @@ def _apply_condition(rows, columns, condition, database=None):
         for row in rows:
             if compare(row[col_idx], op, value):
                 filtered.append(row)
+        return filtered
+
+    if cond_type == "between":
+        _resolved, col_idx = _resolve_column(columns, condition["column"])
+        return [
+            row for row in rows
+            if compare(row[col_idx], ">=", condition["lower"])
+            and compare(row[col_idx], "<=", condition["upper"])
+        ]
+
+    if cond_type == "and":
+        filtered = rows
+        for part in condition["conditions"]:
+            filtered = _apply_condition(filtered, columns, part, database)
         return filtered
 
     if cond_type == "in":
@@ -362,18 +411,9 @@ def select_rows(
 
     cond_type = _condition_type(condition)
 
-    if not join and cond_type == "simple":
-        if isinstance(condition, dict):
-            condition_tuple = (
-                condition["column"],
-                condition["operator"],
-                condition["value"]
-            )
-        else:
-            condition_tuple = condition
-
+    if not join and cond_type in ("simple", "between", "and"):
         filtered, rows_scanned, used_index, index_hits = _get_filtered_rows_with_index(
-            table, tbl, condition_tuple, columns, metadata, database
+            table, tbl, condition, columns, metadata, database
         )
     else:
         if not join:

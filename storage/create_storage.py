@@ -4,6 +4,8 @@ Storage operations for CREATE TABLE
 import os
 import json
 from visualizer import print_trace, print_result
+from index.index_utils import invalidate_row_offsets
+from index.index_manager import invalidate_table_index_cache
 from utils import table_paths, check_table_exists
 
 DATA_DIR = "data"
@@ -71,6 +73,8 @@ def create_table(table, columns, primary_key=None, foreign_keys=None, database=N
                 f"Referenced column '{ref_col}' not found in {ref_table}"
             )
 
+    invalidate_row_offsets(table, database)
+    invalidate_table_index_cache(table, database)
     open(tbl, "w").close()
 
     with open(meta, "w") as f:

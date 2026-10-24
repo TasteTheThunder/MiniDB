@@ -9,6 +9,7 @@ from utils import (
     compare
 )
 from index.index_manager import get_index_manager
+from index.index_utils import build_row_offsets, invalidate_row_offsets
 from .foreign_key_manager import validate_restrict_on_delete
 
 
@@ -53,6 +54,7 @@ def delete_row(table, condition, database=None):
     validate_restrict_on_delete(table, columns, deleted_rows, database)
 
     open(tbl, "w").writelines(new)
+    invalidate_row_offsets(table, database)
 
     # =====================================
     # INDEX MAINTENANCE (rebuild if needed)
@@ -76,6 +78,7 @@ def delete_row(table, condition, database=None):
                     rebuilt.append(f"{col_name}.sorted")
 
             if rebuilt:
+                build_row_offsets(tbl, table, database)
                 print_trace("INDEX", [
                     "Rebuilt indices: " + ", ".join(rebuilt)
                 ])

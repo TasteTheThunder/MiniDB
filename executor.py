@@ -18,11 +18,27 @@ from storage.database_storage import (
     database_exists
 )
 
+from functools import wraps
+import time
+
 from visualizer import print_pipeline, print_trace, print_result
 import config
 from normalization.schema_analyzer import analyze_schema
 
 
+def measure_execution_time(query_executor):
+    @wraps(query_executor)
+    def timed_query_executor(*args, **kwargs):
+        start_time = time.perf_counter()
+        try:
+            return query_executor(*args, **kwargs)
+        finally:
+            elapsed_ms = (time.perf_counter() - start_time) * 1000
+            print(f"Execution time: {elapsed_ms:.3f} ms")
+
+    return timed_query_executor
+
+@measure_execution_time
 def execute_query(command, database=None):
 
     # Educational Pipeline
@@ -65,6 +81,7 @@ def execute_query(command, database=None):
 
         # Handle multiple value sets (bulk insert)
         values = command["values"]
+        inserted_count = 0
         
         # Check if it's multiple rows or single row
         if values and isinstance(values[0], list):
@@ -76,6 +93,7 @@ def execute_query(command, database=None):
                     command.get("columns"),
                     database=database
                 )
+                inserted_count += 1
         else:
             # Single row (backward compatibility)
             insert_row(
@@ -84,6 +102,11 @@ def execute_query(command, database=None):
                 command.get("columns"),
                 database=database
             )
+            inserted_count = 1
+
+        if config.get_mode() == "NORMAL":
+            row_label = "row" if inserted_count == 1 else "rows"
+            print(f"\n✅ {inserted_count} {row_label} inserted successfully\n")
 
 
     # =========================

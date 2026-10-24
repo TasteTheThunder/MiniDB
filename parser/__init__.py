@@ -129,6 +129,22 @@ def _display_parsed_command(command):
                 lines.append(
                     f"Condition      : {cond['column']} {cond['operator']} {cond['value']}"
                 )
+            elif cond_type == "between":
+                lines.append(
+                    f"Condition      : {cond['column']} BETWEEN {cond['lower']} AND {cond['upper']}"
+                )
+            elif cond_type == "and":
+                parts = []
+                for part in cond["conditions"]:
+                    if part["type"] == "between":
+                        parts.append(
+                            f"{part['column']} BETWEEN {part['lower']} AND {part['upper']}"
+                        )
+                    else:
+                        parts.append(
+                            f"{part['column']} {part['operator']} {part['value']}"
+                        )
+                lines.append(f"Condition      : {' AND '.join(parts)}")
             elif cond_type == "in":
                 lines.append(
                     f"Condition      : {cond['column']} IN (subquery)"

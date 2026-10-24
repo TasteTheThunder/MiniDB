@@ -14,6 +14,40 @@ def _find_matching_paren(tokens, start_index):
                 return i
     return None
 
+
+_COMPARISON_OPERATORS = ["=", ">", "<", ">=", "<=", "!="]
+
+
+def _parse_where_predicate(tokens, start_index):
+    if start_index + 2 >= len(tokens):
+        raise Exception("Invalid SELECT syntax. Use: SELECT ... FROM table;")
+
+    column = tokens[start_index]
+    operator = tokens[start_index + 1]
+
+    if operator == "BETWEEN":
+        if (
+            start_index + 4 >= len(tokens)
+            or tokens[start_index + 3] != "AND"
+        ):
+            raise Exception("Invalid SELECT syntax. Use: SELECT ... FROM table;")
+        return {
+            "type": "between",
+            "column": column,
+            "lower": tokens[start_index + 2],
+            "upper": tokens[start_index + 4],
+        }, start_index + 5
+
+    if operator not in _COMPARISON_OPERATORS:
+        raise Exception("Invalid SELECT syntax. Use: SELECT ... FROM table;")
+
+    return {
+        "type": "simple",
+        "column": column,
+        "operator": operator,
+        "value": tokens[start_index + 2],
+    }, start_index + 3
+
 def parse_select(tokens):
     """
     Parse SELECT statement
@@ -150,18 +184,19 @@ def parse_select(tokens):
                 stage = 1
                 continue
 
-            # WHERE <column> <op> <value>
-            if i + 3 >= len(tokens):
-                raise Exception("Invalid SELECT syntax. Use: SELECT ... FROM table;")
-            if tokens[i + 2] not in ["=", ">", "<", ">=", "<=", "!="]:
-                raise Exception("Invalid SELECT syntax. Use: SELECT ... FROM table;")
-            condition = {
-                "type": "simple",
-                "column": tokens[i + 1],
-                "operator": tokens[i + 2],
-                "value": tokens[i + 3]
-            }
-            i += 4
+            condition, i = _parse_where_predicate(tokens, i + 1)
+            conditions = [condition]
+
+            while i < len(tokens) and tokens[i] == "AND":
+                next_condition, i = _parse_where_predicate(tokens, i + 1)
+                conditions.append(next_condition)
+
+            if len(conditions) > 1:
+                condition = {
+                    "type": "and",
+                    "conditions": conditions,
+                }
+
             stage = 1
             continue
 

@@ -11,6 +11,7 @@ from utils import (
     validate_value
 )
 from index.index_manager import get_index_manager
+from index.index_utils import build_row_offsets, invalidate_row_offsets
 from .foreign_key_manager import (
     validate_foreign_key_on_update,
     validate_restrict_on_update
@@ -78,6 +79,7 @@ def update_row(table, set_data, condition, database=None):
     validate_restrict_on_update(table, columns, set_col, affected_rows, database)
 
     open(tbl, "w").writelines(new)
+    invalidate_row_offsets(table, database)
 
     # =====================================
     # INDEX MAINTENANCE (rebuild if needed)
@@ -101,6 +103,7 @@ def update_row(table, set_data, condition, database=None):
                     rebuilt.append(f"{col_name}.sorted")
 
             if rebuilt:
+                build_row_offsets(tbl, table, database)
                 print_trace("INDEX", [
                     "Rebuilt indices: " + ", ".join(rebuilt)
                 ])

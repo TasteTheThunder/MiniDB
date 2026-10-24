@@ -3,6 +3,7 @@ Storage operations for TRUNCATE TABLE
 """
 from visualizer import print_trace, print_result
 from utils import table_paths, check_table_exists
+from index.index_utils import invalidate_row_offsets
 
 
 def truncate_table(command, database=None):
@@ -20,6 +21,7 @@ def truncate_table(command, database=None):
     
     # Clear the table data
     open(tbl, "w").write("")
+    invalidate_row_offsets(table, database)
     
     print_trace("STORAGE ENGINE", [
         f"Truncating table: {table}",

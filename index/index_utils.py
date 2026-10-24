@@ -6,6 +6,7 @@ import re
 
 INDEX_DIR = "index"
 OFFSETS_EXT = "offsets"
+_ROW_OFFSET_CACHE = {}
 
 
 def _index_base_dir(database=None):
@@ -36,6 +37,68 @@ def get_offsets_path(table, database=None):
     return os.path.join(_index_base_dir(database), filename)
 
 
+def _offset_cache_key(table, database=None):
+    return (database or "__default__", table)
+
+
+def _file_signature(path):
+    try:
+        stat = os.stat(path)
+        return (stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        return None
+
+
+def _cache_row_offsets(tbl, table, offsets, database=None):
+    path = get_offsets_path(table, database)
+    _ROW_OFFSET_CACHE[_offset_cache_key(table, database)] = {
+        "offsets": offsets,
+        "table_signature": _file_signature(tbl),
+        "offset_signature": _file_signature(path),
+    }
+
+
+def _write_row_offsets(path, offsets):
+    with open(path, "w") as f:
+        for offset in offsets:
+            f.write(f"{offset}\n")
+
+
+def _offsets_match_table(tbl, offsets):
+    offset_index = 0
+
+    with open(tbl, "rb") as f:
+        while True:
+            position = f.tell()
+            line = f.readline()
+            if not line:
+                break
+            if offset_index >= len(offsets) or offsets[offset_index] != position:
+                return False
+            offset_index += 1
+
+    return offset_index == len(offsets)
+
+
+def invalidate_row_offsets(table, database=None):
+    """Discard cached and persisted offsets for a changed table."""
+    _ROW_OFFSET_CACHE.pop(_offset_cache_key(table, database), None)
+
+    path = get_offsets_path(table, database)
+    if os.path.exists(path):
+        os.remove(path)
+        return True
+    return False
+
+
+def invalidate_database_row_offsets(database):
+    """Discard all cached offsets for a database that is being removed."""
+    cache_key_prefix = database or "__default__"
+    for cache_key in list(_ROW_OFFSET_CACHE):
+        if cache_key[0] == cache_key_prefix:
+            del _ROW_OFFSET_CACHE[cache_key]
+
+
 def build_row_offsets(tbl, table, database=None):
     """
     Build and persist row byte offsets for a table file.
@@ -55,11 +118,32 @@ def build_row_offsets(tbl, table, database=None):
             offsets.append(pos)
 
     path = get_offsets_path(table, database)
-    with open(path, "w") as f:
-        for offset in offsets:
-            f.write(f"{offset}\n")
+    _write_row_offsets(path, offsets)
+    _cache_row_offsets(tbl, table, offsets, database)
 
     return offsets
+
+
+def build_row_offsets_and_load_rows(tbl, table, database=None):
+    """Build row offsets while loading table rows for index construction."""
+    ensure_index_dir(database)
+    offsets = []
+    rows = []
+
+    with open(tbl, "rb") as f:
+        while True:
+            position = f.tell()
+            line = f.readline()
+            if not line:
+                break
+            offsets.append(position)
+            rows.append(line.decode("utf-8").strip().split(","))
+
+    path = get_offsets_path(table, database)
+    _write_row_offsets(path, offsets)
+    _cache_row_offsets(tbl, table, offsets, database)
+
+    return rows
 
 
 def load_row_offsets(tbl, table, database=None):
@@ -70,14 +154,26 @@ def load_row_offsets(tbl, table, database=None):
         List of byte offsets for each row (0-indexed).
     """
     path = get_offsets_path(table, database)
+    cache_key = _offset_cache_key(table, database)
+    cached = _ROW_OFFSET_CACHE.get(cache_key)
+    if cached:
+        if (
+            cached["table_signature"] == _file_signature(tbl)
+            and cached["offset_signature"] == _file_signature(path)
+        ):
+            return cached["offsets"]
+        _ROW_OFFSET_CACHE.pop(cache_key, None)
 
     if not os.path.exists(path):
         return build_row_offsets(tbl, table, database)
 
-    try:
-        if os.path.getmtime(path) < os.path.getmtime(tbl):
-            return build_row_offsets(tbl, table, database)
-    except OSError:
+    offset_signature = _file_signature(path)
+    table_signature = _file_signature(tbl)
+    if (
+        offset_signature is None
+        or table_signature is None
+        or offset_signature[0] < table_signature[0]
+    ):
         return build_row_offsets(tbl, table, database)
 
     offsets = []
@@ -91,6 +187,10 @@ def load_row_offsets(tbl, table, database=None):
     except (OSError, ValueError):
         return build_row_offsets(tbl, table, database)
 
+    if not _offsets_match_table(tbl, offsets):
+        return build_row_offsets(tbl, table, database)
+
+    _cache_row_offsets(tbl, table, offsets, database)
     return offsets
 
 

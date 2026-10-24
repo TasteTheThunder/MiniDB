@@ -253,6 +253,12 @@ class IndexManager:
     def clear_cache(self):
         """Clear all cached indices"""
         self.indices.clear()
+
+    def clear_table_cache(self, table):
+        """Clear cached hash and sorted indices for one table."""
+        for cache_key in list(self.indices):
+            if cache_key[0] == table:
+                del self.indices[cache_key]
     
     def get_stats_info(self, table, column):
         """Get statistics for a table column"""
@@ -269,3 +275,15 @@ def get_index_manager(database=None):
     if key not in _global_managers:
         _global_managers[key] = IndexManager(database)
     return _global_managers[key]
+
+
+def invalidate_table_index_cache(table, database=None):
+    """Discard cached indices for a dropped or recreated table."""
+    manager = _global_managers.get(database or "__default__")
+    if manager:
+        manager.clear_table_cache(table)
+
+
+def invalidate_database_index_cache(database=None):
+    """Discard cached indices for a dropped database."""
+    _global_managers.pop(database or "__default__", None)

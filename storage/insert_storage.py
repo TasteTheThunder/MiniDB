@@ -10,6 +10,7 @@ from utils import (
     validate_value
 )
 from index.index_manager import get_index_manager
+from index.index_utils import invalidate_row_offsets
 from .foreign_key_manager import validate_foreign_keys_on_insert
 
 
@@ -127,6 +128,7 @@ def insert_row(table, values, insert_columns=None, database=None):
     row_num = len(existing_rows)
     line = ",".join(final_values)
     open(tbl, "a").write(line + "\n")
+    invalidate_row_offsets(table, database)
 
     # =====================================
     # INDEX MAINTENANCE (if any index exists)

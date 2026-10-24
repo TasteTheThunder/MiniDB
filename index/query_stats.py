@@ -168,3 +168,8 @@ def get_query_stats(database=None):
     if key not in _global_stats:
         _global_stats[key] = QueryStats(database)
     return _global_stats[key]
+
+
+def invalidate_database_query_stats_cache(database=None):
+    """Discard cached query statistics for a dropped database."""
+    _global_stats.pop(database or "__default__", None)

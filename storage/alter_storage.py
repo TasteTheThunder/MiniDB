@@ -5,6 +5,8 @@ import os
 import json
 from visualizer import print_trace, print_result
 from utils import table_paths, check_table_exists
+from index.index_utils import invalidate_row_offsets
+from index.index_manager import invalidate_table_index_cache
 
 DATA_DIR = "data"
 META_DIR = "metadata"
@@ -66,6 +68,8 @@ def alter_table(command, database=None):
                 new_rows.append(row + nulls + "\n")
         
         open(tbl, "w").writelines(new_rows)
+        invalidate_row_offsets(table, database)
+        invalidate_table_index_cache(table, database)
         
         with open(meta, "w") as f:
             json.dump(metadata, f)
@@ -117,6 +121,8 @@ def alter_table(command, database=None):
             new_rows.append(",".join(vals) + "\n")
         
         open(tbl, "w").writelines(new_rows)
+        invalidate_row_offsets(table, database)
+        invalidate_table_index_cache(table, database)
         
         with open(meta, "w") as f:
             json.dump(metadata, f)
@@ -216,6 +222,10 @@ def alter_table(command, database=None):
         
         os.rename(tbl, new_tbl)
         os.rename(meta, new_meta)
+        invalidate_row_offsets(table, database)
+        invalidate_row_offsets(new_table_name, database)
+        invalidate_table_index_cache(table, database)
+        invalidate_table_index_cache(new_table_name, database)
         
         print_trace("STORAGE ENGINE", [
             f"Renamed table: {table} → {new_table_name}",

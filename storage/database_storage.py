@@ -4,6 +4,9 @@ Storage operations for DATABASE management
 import os
 import json
 from visualizer import print_trace, print_result
+from index.index_utils import invalidate_database_row_offsets
+from index.index_manager import invalidate_database_index_cache
+from index.query_stats import invalidate_database_query_stats_cache
 
 DATA_DIR = "data"
 META_DIR = "metadata"
@@ -67,6 +70,10 @@ def drop_database(db_name):
     
     if db_name not in databases:
         raise Exception(f"Database '{db_name}' does not exist")
+
+    invalidate_database_row_offsets(db_name)
+    invalidate_database_index_cache(db_name)
+    invalidate_database_query_stats_cache(db_name)
     
     # Remove database directories
     db_data_dir = os.path.join(DATA_DIR, db_name)

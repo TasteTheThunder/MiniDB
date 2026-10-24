@@ -5,9 +5,10 @@ import os
 from index.index_utils import (
     list_indices,
     delete_index,
-    get_offsets_path
+    invalidate_row_offsets,
 )
 from index.query_stats import get_query_stats
+from index.index_manager import invalidate_table_index_cache
 from normalization.fd_manager import delete_fds
 from visualizer import print_trace, print_result
 from utils import (
@@ -33,10 +34,9 @@ def drop_table(table, database=None):
         if delete_index(table, column, index_type, database):
             removed_index_files.append(f"{table}_{column}.{index_type}")
 
-    offsets_path = get_offsets_path(table, database)
-    if os.path.exists(offsets_path):
-        os.remove(offsets_path)
-        removed_index_files.append(os.path.basename(offsets_path))
+    if invalidate_row_offsets(table, database):
+        removed_index_files.append(f"{table}.offsets")
+    invalidate_table_index_cache(table, database)
 
     # Remove query stats for the table
     stats = get_query_stats(database)
